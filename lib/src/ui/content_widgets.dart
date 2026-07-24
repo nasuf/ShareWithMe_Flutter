@@ -261,12 +261,90 @@ class _ContentBlockView extends StatelessWidget {
                 const SizedBox.shrink(),
           ),
         );
+      case 'link':
+        final url = block.url?.trim() ?? '';
+        final label = block.text.trim().isEmpty ? '打开链接' : block.text.trim();
+        if (url.isEmpty) {
+          return SelectableText(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+          );
+        }
+        return _LinkBlockTile(text: label, url: url);
       default:
         return SelectableText(
           block.text,
           style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
         );
     }
+  }
+}
+
+class _LinkBlockTile extends StatelessWidget {
+  const _LinkBlockTile({required this.text, required this.url});
+
+  final String text;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: _mint.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => _confirmAndOpen(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(Icons.link_rounded, size: 18, color: _mint),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    height: 1.45,
+                    color: _ink,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.open_in_new_rounded, size: 15, color: _mutedInk),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmAndOpen(BuildContext context) async {
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        content: const Text('即将前往微信打开此内容，使用完整服务。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('前往'),
+          ),
+        ],
+      ),
+    );
+    if (proceed != true) {
+      return;
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      return;
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 }
 
