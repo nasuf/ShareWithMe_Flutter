@@ -21,6 +21,7 @@ class LinkItem {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.analysisPending = false,
     this.sourceApp,
     this.author,
     this.imageUrl,
@@ -67,6 +68,7 @@ class LinkItem {
   final String contentType;
   final int importanceScore;
   final String notes;
+  final bool analysisPending;
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -118,6 +120,7 @@ class LinkItem {
       contentType: json['content_type'] as String,
       importanceScore: json['importance_score'] as int,
       notes: json['notes'] as String,
+      analysisPending: (json['analysis_pending'] as bool?) ?? false,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
       updatedAt: DateTime.parse(json['updated_at'] as String).toLocal(),

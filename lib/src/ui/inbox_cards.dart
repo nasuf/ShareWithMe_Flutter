@@ -114,7 +114,27 @@ class _LinkCardState extends State<LinkCard> {
                         ),
                       ],
                     ),
-                    if (item.summary.trim().isNotEmpty) ...[
+                    if (item.analysisPending) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 11,
+                            height: 11,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.6,
+                              valueColor: AlwaysStoppedAnimation<Color>(_mint),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'AI 分析中…',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: _mutedInk, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ] else if (item.summary.trim().isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Text(
                         item.summary,

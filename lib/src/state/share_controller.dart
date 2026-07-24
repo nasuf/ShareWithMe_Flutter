@@ -11,6 +11,7 @@ class ShareController extends ChangeNotifier {
   final Set<String> _autoCoverRefreshesTried = {};
   final Set<String> _contentRefreshesInFlight = {};
   final Set<String> _autoContentRefreshesTried = {};
+  final Set<String> _analysisPollsInFlight = {};
   CollectionStats? stats;
   CollectionDigest? digest;
   AnalyzerStatus? analyzerStatus;
@@ -196,6 +197,7 @@ class ShareController extends ChangeNotifier {
       digest = results[2] as CollectionDigest;
       unawaited(_refreshStaleRemoteCovers());
       unawaited(_refreshStaleContent());
+      _schedulePendingAnalysisPolls();
     } catch (exception) {
       error = exception.toString();
     } finally {
@@ -343,6 +345,41 @@ class ShareController extends ChangeNotifier {
     }
     _autoContentRefreshesTried.add(item.id);
     await refreshContent(item);
+  }
+
+  // AI analysis now runs in the background: the analyze call returns a fast
+  // local snapshot with `analysisPending = true`, so poll those items until the
+  // real analysis lands and then update them in place.
+  void _schedulePendingAnalysisPolls() {
+    for (final item in items.where((item) => item.analysisPending)) {
+      unawaited(_pollPendingAnalysis(item.id));
+    }
+  }
+
+  Future<void> _pollPendingAnalysis(String id) async {
+    if (_analysisPollsInFlight.contains(id)) {
+      return;
+    }
+    _analysisPollsInFlight.add(id);
+    try {
+      for (var attempt = 0; attempt < 20; attempt++) {
+        await Future.delayed(const Duration(seconds: 3));
+        final LinkItem updated;
+        try {
+          updated = await api.getItem(id);
+        } catch (exception) {
+          debugPrint('Pending analysis poll failed for $id: $exception');
+          continue;
+        }
+        _replaceItem(updated);
+        notifyListeners();
+        if (!updated.analysisPending) {
+          break;
+        }
+      }
+    } finally {
+      _analysisPollsInFlight.remove(id);
+    }
   }
 
   Future<void> _refreshStaleContent() async {
