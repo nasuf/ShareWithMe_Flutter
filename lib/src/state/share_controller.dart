@@ -9,6 +9,8 @@ class ShareController extends ChangeNotifier {
   final Map<String, LinkItem> _itemCache = {};
   final Set<String> _coverRefreshesInFlight = {};
   final Set<String> _autoCoverRefreshesTried = {};
+  final Set<String> _contentRefreshesInFlight = {};
+  final Set<String> _autoContentRefreshesTried = {};
   CollectionStats? stats;
   CollectionDigest? digest;
   AnalyzerStatus? analyzerStatus;
@@ -20,6 +22,7 @@ class ShareController extends ChangeNotifier {
   bool checkingAnalyzer = false;
   bool importingBackup = false;
   Timer? _queryDebounce;
+  bool _shareListenerStarted = false;
   int tabIndex = 0;
   String query = '';
   String category = '';
@@ -29,9 +32,22 @@ class ShareController extends ChangeNotifier {
   StreamSubscription<List<SharedMediaFile>>? _shareSubscription;
 
   Future<void> bootstrap() async {
-    await restoreSettings();
+    try {
+      await restoreSettings();
+    } catch (exception, stackTrace) {
+      debugPrint('Failed to restore app settings: $exception');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+    _startShareListener();
     await refresh();
-    await _listenForSharedLinks();
+  }
+
+  void _startShareListener() {
+    if (_shareListenerStarted) {
+      return;
+    }
+    _shareListenerStarted = true;
+    unawaited(_listenForSharedLinks());
   }
 
   Future<void> restoreSettings() async {
@@ -39,11 +55,19 @@ class ShareController extends ChangeNotifier {
     if (savedBackendUrl != null) {
       try {
         final normalized = normalizeBackendUrl(savedBackendUrl);
+        if (isLegacyLocalBackendUrl(normalized)) {
+          final defaultUrl = defaultBackendUrl();
+          await settings.saveBackendUrl(defaultUrl);
+          if (defaultUrl != api.baseUrl) {
+            api = ApiClient(defaultUrl, apiToken: api.apiToken);
+          }
+          return;
+        }
         if (normalized != savedBackendUrl) {
           await settings.saveBackendUrl(normalized);
         }
         if (normalized != api.baseUrl) {
-          api = ApiClient(normalized);
+          api = ApiClient(normalized, apiToken: api.apiToken);
         }
       } on FormatException {
         await settings.saveBackendUrl(defaultBackendUrl());
@@ -108,7 +132,7 @@ class ShareController extends ChangeNotifier {
 
   Future<void> setBackendUrl(String value) async {
     final normalized = normalizeBackendUrl(value);
-    api = ApiClient(normalized);
+    api = ApiClient(normalized, apiToken: api.apiToken);
     analyzerStatus = null;
     await settings.saveBackendUrl(normalized);
     await refresh();
@@ -153,6 +177,7 @@ class ShareController extends ChangeNotifier {
     loading = true;
     error = null;
     notifyListeners();
+    unawaited(_refreshHealth());
     try {
       final results = await Future.wait([
         api.listItems(
@@ -164,23 +189,33 @@ class ShareController extends ChangeNotifier {
         ),
         api.stats(status: statusFilter),
         api.digest(),
-        api.health(),
       ]);
       items = results[0] as List<LinkItem>;
       _rememberItems(items);
       stats = results[1] as CollectionStats;
       digest = results[2] as CollectionDigest;
-      final health = results[3] as Map<String, dynamic>;
+      unawaited(_refreshStaleRemoteCovers());
+      unawaited(_refreshStaleContent());
+    } catch (exception) {
+      error = exception.toString();
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _refreshHealth() async {
+    try {
+      final health = await api.health();
       final model = (health['deepseek_model'] ?? 'deepseek-v4-flash')
           .toString();
       healthMessage = health['deepseek_configured'] == true
           ? 'DeepSeek 已配置：$model'
           : 'DeepSeek 未配置，使用本地启发式分析';
-      unawaited(_refreshStaleRemoteCovers());
     } catch (exception) {
-      error = exception.toString();
+      healthMessage = '资料服务暂时无法连接';
+      debugPrint('Backend health check failed: $exception');
     } finally {
-      loading = false;
       notifyListeners();
     }
   }
@@ -282,6 +317,47 @@ class ShareController extends ChangeNotifier {
       debugPrint('Cover refresh failed for ${item.id}: $exception');
     } finally {
       _coverRefreshesInFlight.remove(item.id);
+    }
+  }
+
+  Future<void> refreshContent(LinkItem item, {bool force = false}) async {
+    if (_contentRefreshesInFlight.contains(item.id)) {
+      return;
+    }
+    _contentRefreshesInFlight.add(item.id);
+    try {
+      final updated = await api.refreshContent(item.id, force: force);
+      _replaceItem(updated);
+      notifyListeners();
+    } catch (exception) {
+      debugPrint('Content refresh failed for ${item.id}: $exception');
+    } finally {
+      _contentRefreshesInFlight.remove(item.id);
+    }
+  }
+
+  Future<void> ensureFresh(LinkItem item) async {
+    if (!item.contentNeedsRefresh ||
+        _autoContentRefreshesTried.contains(item.id)) {
+      return;
+    }
+    _autoContentRefreshesTried.add(item.id);
+    await refreshContent(item);
+  }
+
+  Future<void> _refreshStaleContent() async {
+    final candidates = items
+        .where(
+          (item) =>
+              item.contentNeedsRefresh &&
+              !_autoContentRefreshesTried.contains(item.id) &&
+              !_contentRefreshesInFlight.contains(item.id),
+        )
+        .take(2)
+        .toList(growable: false);
+    for (final item in candidates) {
+      _autoContentRefreshesTried.add(item.id);
+      await refreshContent(item);
     }
   }
 

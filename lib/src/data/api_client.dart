@@ -1,9 +1,17 @@
 part of '../../main.dart';
 
 class ApiClient {
-  ApiClient(this.baseUrl);
+  ApiClient(this.baseUrl, {this.apiToken = buildApiToken});
+
+  static const _requestTimeout = Duration(seconds: 12);
+  static const _analysisTimeout = Duration(minutes: 5);
 
   final String baseUrl;
+  final String apiToken;
+
+  Map<String, String> get authorizationHeaders => apiToken.trim().isEmpty
+      ? const {}
+      : {'authorization': 'Bearer ${apiToken.trim()}'};
 
   Uri _uri(String path, [Map<String, String?> query = const {}]) {
     final clean = baseUrl.endsWith('/')
@@ -18,7 +26,7 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> health() async {
-    final response = await http.get(_uri('/health'));
+    final response = await _get(_uri('/health'));
     return _decodeObject(response);
   }
 
@@ -26,12 +34,24 @@ class ApiClient {
 
   Uri exportJsonUri() => _uri('/api/export/json');
 
+  Future<String> exportMarkdown() async {
+    final response = await _get(exportMarkdownUri());
+    _ensureSuccess(response);
+    return utf8.decode(response.bodyBytes);
+  }
+
+  Future<String> exportJson() async {
+    final response = await _get(exportJsonUri());
+    _ensureSuccess(response);
+    return utf8.decode(response.bodyBytes);
+  }
+
   Future<JsonImportResult> importJsonBackup(String rawJson) async {
     final decoded = jsonDecode(rawJson);
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException('JSON 备份必须是对象');
     }
-    final response = await http.post(
+    final response = await _post(
       _uri('/api/import/json'),
       headers: {'content-type': 'application/json'},
       body: jsonEncode(decoded),
@@ -46,7 +66,7 @@ class ApiClient {
     String status = 'active',
     String sort = 'newest',
   }) async {
-    final response = await http.get(
+    final response = await _get(
       _uri('/api/items', {
         'query': query,
         'category': category,
@@ -60,22 +80,22 @@ class ApiClient {
   }
 
   Future<LinkItem> getItem(String id) async {
-    final response = await http.get(_uri('/api/items/$id'));
+    final response = await _get(_uri('/api/items/$id'));
     return LinkItem.fromJson(_decodeObject(response));
   }
 
   Future<CollectionStats> stats({String status = 'active'}) async {
-    final response = await http.get(_uri('/api/stats', {'status': status}));
+    final response = await _get(_uri('/api/stats', {'status': status}));
     return CollectionStats.fromJson(_decodeObject(response));
   }
 
   Future<CollectionDigest> digest() async {
-    final response = await http.get(_uri('/api/digest'));
+    final response = await _get(_uri('/api/digest'));
     return CollectionDigest.fromJson(_decodeObject(response));
   }
 
   Future<AnalyzerStatus> checkAnalyzer() async {
-    final response = await http.post(_uri('/api/analyzer/check'));
+    final response = await _post(_uri('/api/analyzer/check'));
     return AnalyzerStatus.fromJson(_decodeObject(response));
   }
 
@@ -83,10 +103,11 @@ class ApiClient {
     required String sharedText,
     String? sourceApp,
   }) async {
-    final response = await http.post(
+    final response = await _post(
       _uri('/api/links/analyze'),
       headers: {'content-type': 'application/json'},
       body: jsonEncode({'shared_text': sharedText, 'source_app': sourceApp}),
+      timeout: _analysisTimeout,
     );
     return LinkItem.fromJson(_decodeObject(response));
   }
@@ -95,29 +116,41 @@ class ApiClient {
     required String sharedText,
     String? sourceApp,
   }) async {
-    final response = await http.post(
+    final response = await _post(
       _uri('/api/links/analyze-many'),
       headers: {'content-type': 'application/json'},
       body: jsonEncode({'shared_text': sharedText, 'source_app': sourceApp}),
+      timeout: _analysisTimeout,
     );
     final decoded = _decodeList(response);
     return decoded.map((item) => LinkItem.fromJson(item)).toList();
   }
 
   Future<LinkItem> reanalyze(String id) async {
-    final response = await http.post(_uri('/api/items/$id/reanalyze'));
+    final response = await _post(
+      _uri('/api/items/$id/reanalyze'),
+      timeout: _analysisTimeout,
+    );
+    return LinkItem.fromJson(_decodeObject(response));
+  }
+
+  Future<LinkItem> refreshContent(String id, {bool force = false}) async {
+    final response = await _post(
+      _uri('/api/items/$id/refresh', {'force': force ? 'true' : null}),
+      timeout: _analysisTimeout,
+    );
     return LinkItem.fromJson(_decodeObject(response));
   }
 
   Future<LinkItem> refreshCover(String id, {bool force = false}) async {
-    final response = await http.post(
+    final response = await _post(
       _uri('/api/items/$id/cover/refresh', {'force': force ? 'true' : null}),
     );
     return LinkItem.fromJson(_decodeObject(response));
   }
 
   Future<LinkItem> updateStatus(String id, String status) async {
-    final response = await http.patch(
+    final response = await _patch(
       _uri('/api/items/$id/status'),
       headers: {'content-type': 'application/json'},
       body: jsonEncode({'status': status}),
@@ -131,7 +164,7 @@ class ApiClient {
     required List<String> keywords,
     required String notes,
   }) async {
-    final response = await http.patch(
+    final response = await _patch(
       _uri('/api/items/$id'),
       headers: {'content-type': 'application/json'},
       body: jsonEncode({
@@ -144,8 +177,51 @@ class ApiClient {
   }
 
   Future<void> deleteItem(String id) async {
-    final response = await http.delete(_uri('/api/items/$id'));
+    final response = await _delete(_uri('/api/items/$id'));
     if (response.statusCode != 204) {
+      _throwHttp(response);
+    }
+  }
+
+  Future<http.Response> _get(Uri uri) {
+    return http
+        .get(uri, headers: authorizationHeaders)
+        .timeout(_requestTimeout);
+  }
+
+  Future<http.Response> _post(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+    Duration timeout = _requestTimeout,
+  }) {
+    return http
+        .post(uri, headers: _mergeHeaders(headers), body: body)
+        .timeout(timeout);
+  }
+
+  Future<http.Response> _patch(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) {
+    return http
+        .patch(uri, headers: _mergeHeaders(headers), body: body)
+        .timeout(_requestTimeout);
+  }
+
+  Future<http.Response> _delete(Uri uri) {
+    return http
+        .delete(uri, headers: authorizationHeaders)
+        .timeout(_requestTimeout);
+  }
+
+  Map<String, String> _mergeHeaders(Map<String, String>? headers) {
+    return {...authorizationHeaders, ...?headers};
+  }
+
+  void _ensureSuccess(http.Response response) {
+    if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwHttp(response);
     }
   }

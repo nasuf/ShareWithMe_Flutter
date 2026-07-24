@@ -1,10 +1,46 @@
 part of '../../main.dart';
 
+const String productionBackendUrl = 'http://192.210.235.115:8080';
+const String _buildBackendUrl = String.fromEnvironment(
+  'SHARE_WITH_ME_BACKEND_URL',
+  defaultValue: productionBackendUrl,
+);
+const String buildApiToken = String.fromEnvironment('SHARE_WITH_ME_API_TOKEN');
+
 String defaultBackendUrl() {
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:8080';
+  return normalizeBackendUrl(_buildBackendUrl);
+}
+
+bool isLegacyLocalBackendUrl(String value) {
+  final normalized = normalizeBackendUrl(value);
+  final uri = Uri.parse(normalized);
+  return isPrivateBackendHost(uri.host);
+}
+
+bool isPrivateBackendHost(String host) {
+  final value = host.toLowerCase();
+  if (value == 'localhost' ||
+      value == '127.0.0.1' ||
+      value == '0.0.0.0' ||
+      value == '::1' ||
+      value == '10.0.2.2') {
+    return true;
   }
-  return 'http://127.0.0.1:8080';
+  final parts = value.split('.');
+  if (parts.length != 4) {
+    return false;
+  }
+  final octets = parts.map(int.tryParse).toList();
+  if (octets.any((part) => part == null || part < 0 || part > 255)) {
+    return false;
+  }
+  final first = octets[0]!;
+  final second = octets[1]!;
+  return first == 10 ||
+      first == 127 ||
+      (first == 172 && second >= 16 && second <= 31) ||
+      (first == 192 && second == 168) ||
+      (first == 169 && second == 254);
 }
 
 String normalizeBackendUrl(String input) {

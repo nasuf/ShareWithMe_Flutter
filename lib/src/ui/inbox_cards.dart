@@ -1,278 +1,231 @@
 part of '../../main.dart';
 
-class LinkCard extends StatelessWidget {
-  const LinkCard({super.key, required this.item, required this.controller});
+class LinkCard extends StatefulWidget {
+  const LinkCard({
+    super.key,
+    required this.item,
+    required this.controller,
+    this.lastInGroup = false,
+  });
 
   final LinkItem item;
   final ShareController controller;
+  final bool lastInGroup;
+
+  @override
+  State<LinkCard> createState() => _LinkCardState();
+}
+
+class _LinkCardState extends State<LinkCard> {
+  @override
+  void initState() {
+    super.initState();
+    _scheduleRefresh();
+  }
+
+  @override
+  void didUpdateWidget(covariant LinkCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.id != widget.item.id ||
+        oldWidget.item.extraction.refreshAfter !=
+            widget.item.extraction.refreshAfter) {
+      _scheduleRefresh();
+    }
+  }
+
+  void _scheduleRefresh() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(widget.controller.ensureFresh(widget.item));
+      }
+    });
+  }
+
+  void _openDetail() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ShareScope(
+          controller: widget.controller,
+          child: DetailPage(itemId: widget.item.id),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
     final style = platformStyle(item.platform);
     final imageUrl = resolveBackendMediaUrl(
-      controller.api.baseUrl,
+      widget.controller.api.baseUrl,
       item.imageUrl?.trim() ?? '',
     );
-    final hasImage = imageUrl.isNotEmpty;
-    final isVideo = _isVideoItem(item);
-    final contentIcon = _contentIcon(item);
-    final tags = <String>[
-      item.category,
-      ...item.keywords.where((keyword) => keyword != item.category),
-    ];
-    return _GlassCardShell(
-      style: style,
-      hasImage: hasImage,
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ShareScope(
-            controller: controller,
-            child: DetailPage(itemId: item.id),
-          ),
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
-        child: Stack(
-          children: [
-            Positioned.fill(child: _PlatformGlassTint(style: style)),
-            Positioned(
-              right: -42,
-              bottom: -34,
-              child: Container(
-                width: 132,
-                height: 132,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: style.color.withValues(alpha: 0.075),
+    final keywords = item.keywords
+        .where(
+          (keyword) => keyword.trim().isNotEmpty && keyword != item.category,
+        )
+        .take(2)
+        .toList(growable: false);
+    return RepaintBoundary(
+      child: Semantics(
+        button: true,
+        label: '${item.platform}，${item.title}',
+        child: _InsetGalleryCardFrame(
+          onTap: _openDetail,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+                child: CardCoverMedia(
+                  imageUrl: imageUrl,
+                  item: item,
+                  style: style,
+                  onError: () =>
+                      widget.controller.refreshCover(item, force: true),
                 ),
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                hasImage
-                    ? _CardMediaHeader(
-                        imageUrl: imageUrl,
-                        item: item,
-                        style: style,
-                        showPlay: isVideo,
-                        contentIcon: contentIcon,
-                        onImageError: () =>
-                            controller.refreshCover(item, force: true),
-                      )
-                    : _GeneratedCardBanner(
-                        item: item,
-                        style: style,
-                        contentIcon: contentIcon,
-                      ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              color: _ink,
-                              fontWeight: FontWeight.w900,
-                              height: 1.08,
-                            ),
-                      ),
-                      const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: _ink,
+                                  fontSize: 16.5,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.25,
+                                ),
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        _CardMoreMenu(
+                          item: item,
+                          controller: widget.controller,
+                        ),
+                      ],
+                    ),
+                    if (item.summary.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
                       Text(
                         item.summary,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: _ink.withValues(alpha: 0.78),
-                          height: 1.38,
-                          fontWeight: FontWeight.w600,
+                          color: _mutedInk,
+                          fontSize: 13,
+                          height: 1.36,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                    ],
+                    if (keywords.isNotEmpty || item.category.isNotEmpty) ...[
+                      const SizedBox(height: 9),
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
                         children: [
-                          for (final tag in tags.take(4))
-                            _TinyTag(
-                              label: tag,
-                              icon: tag == item.category
-                                  ? contentIcon
-                                  : Icons.tag,
-                              color: style.color,
-                            ),
-                          if (tags.length > 4)
-                            _TinyTag(
-                              label: '+${tags.length - 4}',
-                              icon: Icons.more_horiz,
-                              color: _mutedInk,
-                            ),
-                          if (item.status != 'active')
-                            _TinyTag(
-                              label: _statusLabel(item.status),
-                              icon: _statusIcon(item.status),
-                              color: _mutedInk,
-                            ),
+                          if (item.category.trim().isNotEmpty)
+                            _CardKeyword(label: item.category),
+                          for (final keyword in keywords)
+                            _CardKeyword(label: keyword),
                         ],
                       ),
-                      const SizedBox(height: 11),
-                      _CardFooter(item: item),
                     ],
-                  ),
+                    const SizedBox(height: 12),
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: _line.withValues(alpha: 0.88),
+                    ),
+                    const SizedBox(height: 10),
+                    _CardFooter(item: item, style: style),
+                  ],
                 ),
-              ],
-            ),
-            Positioned.fill(child: _GlassSpecularOverlay(style: style)),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _GlassCardShell extends StatelessWidget {
-  const _GlassCardShell({
-    required this.style,
-    required this.hasImage,
-    required this.onTap,
-    required this.child,
-  });
+class _InsetGalleryCardFrame extends StatelessWidget {
+  const _InsetGalleryCardFrame({required this.child, required this.onTap});
 
-  final PlatformStyle style;
-  final bool hasImage;
-  final VoidCallback onTap;
   final Widget child;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned.fill(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-            child: _CardAtmosphere(style: style, hasImage: hasImage),
+    const radius = 24.0;
+    final shape = BorderRadius.circular(radius);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: shape,
+        border: Border.all(color: const Color(0xFFDCE3E8)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF263445).withValues(alpha: 0.08),
+            blurRadius: 30,
+            spreadRadius: -14,
+            offset: const Offset(0, 18),
           ),
-        ),
-        GlassPanel(
-          padding: EdgeInsets.zero,
-          radius: 30,
-          blurSigma: 10,
-          color: _creamSurface.withValues(alpha: 0.9),
-          borderColor: Colors.white.withValues(alpha: 0.74),
-          onTap: onTap,
-          child: child,
-        ),
-      ],
-    );
-  }
-}
-
-class _CardAtmosphere extends StatelessWidget {
-  const _CardAtmosphere({required this.style, required this.hasImage});
-
-  final PlatformStyle style;
-  final bool hasImage;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(34),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFFE7D9BD).withValues(alpha: 0.6),
-              style.softColor.withValues(alpha: hasImage ? 0.34 : 0.46),
-              const Color(0xFFFFE1BA).withValues(alpha: 0.3),
-              style.color.withValues(alpha: hasImage ? 0.12 : 0.2),
-            ],
-            stops: const [0, 0.42, 0.7, 1],
+          BoxShadow(
+            color: const Color(0xFF263445).withValues(alpha: 0.07),
+            blurRadius: 8,
+            spreadRadius: -4,
+            offset: const Offset(0, 4),
           ),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned(
-              right: -54,
-              top: -42,
-              child: _AtmosphereOrb(
-                size: 170,
-                color: Colors.white.withValues(alpha: 0.5),
-              ),
-            ),
-            Positioned(
-              left: -48,
-              bottom: -58,
-              child: _AtmosphereOrb(
-                size: 168,
-                color: style.color.withValues(alpha: 0.12),
-              ),
-            ),
-            Positioned(
-              right: 18,
-              bottom: 18,
-              child: _AtmosphereOrb(
-                size: 92,
-                color: const Color(0xFFECA88E).withValues(alpha: 0.18),
-              ),
-            ),
-          ],
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: shape,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Material(
+            color: Colors.white.withValues(alpha: 0.62),
+            child: InkWell(onTap: onTap, child: child),
+          ),
         ),
       ),
     );
   }
 }
 
-class _AtmosphereOrb extends StatelessWidget {
-  const _AtmosphereOrb({required this.size, required this.color});
+class _CardKeyword extends StatelessWidget {
+  const _CardKeyword({required this.label});
 
-  final double size;
-  final Color color;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: _ink.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.82)),
       ),
-    );
-  }
-}
-
-class _GlassSpecularOverlay extends StatelessWidget {
-  const _GlassSpecularOverlay({required this.style, this.radius = 30});
-
-  final PlatformStyle style;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.62)),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withValues(alpha: 0.34),
-              Colors.white.withValues(alpha: 0.02),
-              style.color.withValues(alpha: 0.025),
-            ],
-            stops: const [0, 0.46, 1],
-          ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: _mutedInk,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -280,83 +233,101 @@ class _GlassSpecularOverlay extends StatelessWidget {
 }
 
 class _CardFooter extends StatelessWidget {
-  const _CardFooter({required this.item});
+  const _CardFooter({required this.item, required this.style});
 
   final LinkItem item;
+  final PlatformStyle style;
 
   @override
   Widget build(BuildContext context) {
-    final source = (item.author ?? '').trim().isEmpty
-        ? item.platform
-        : item.author!.trim();
+    final author = (item.author ?? '').trim();
+    final authorAndDate =
+        '${author.isEmpty ? style.label : author}  ·  '
+        '${DateFormat('MM-dd HH:mm').format(item.createdAt)}';
     return Row(
       children: [
+        PlatformBrandMark(platform: item.platform, size: 20, flat: true),
+        const SizedBox(width: 7),
         Expanded(
           child: Text(
-            source,
+            authorAndDate,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: _mutedInk,
-              fontWeight: FontWeight.w700,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
-        const SizedBox(width: 12),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.schedule, size: 15, color: _mutedInk),
-            const SizedBox(width: 4),
-            Text(
-              DateFormat('MM-dd HH:mm').format(item.createdAt),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: _mutedInk,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 2),
-            const Icon(Icons.chevron_right, color: _mutedInk, size: 22),
-          ],
+        const SizedBox(width: 10),
+        const Icon(Icons.sync_rounded, size: 15, color: _mutedInk),
+        const SizedBox(width: 4),
+        Text(
+          _freshnessLabel(item),
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall?.copyWith(color: _mutedInk, fontSize: 11.5),
         ),
       ],
     );
   }
 }
 
-class _PlatformGlassTint extends StatelessWidget {
-  const _PlatformGlassTint({required this.style});
+class _CardMoreMenu extends StatelessWidget {
+  const _CardMoreMenu({required this.item, required this.controller});
 
-  final PlatformStyle style;
+  final LinkItem item;
+  final ShareController controller;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.16),
-            _creamSurface.withValues(alpha: 0.18),
-            Colors.white.withValues(alpha: 0.08),
-            style.color.withValues(alpha: 0.025),
-          ],
-          stops: const [0, 0.36, 0.74, 1],
+    return PopupMenuButton<String>(
+      tooltip: '更多操作',
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+      color: Colors.white.withValues(alpha: 0.96),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      icon: const Icon(Icons.more_horiz_rounded, color: _mutedInk, size: 20),
+      onSelected: (value) async {
+        if (value == 'edit') {
+          await showEditItemSheet(context, controller, item);
+        } else if (value == 'reanalyze') {
+          await controller.reanalyze(item);
+        } else {
+          await controller.updateStatus(item, value);
+        }
+      },
+      itemBuilder: (_) => [
+        const PopupMenuItem(value: 'edit', child: Text('编辑分类与关键词')),
+        PopupMenuItem(
+          value: 'favorite',
+          child: Text(item.status == 'favorite' ? '取消重要' : '标为重要'),
         ),
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: const Alignment(-0.78, -0.88),
-            radius: 1.08,
-            colors: [
-              Colors.white.withValues(alpha: 0.22),
-              Colors.white.withValues(alpha: 0),
-            ],
-          ),
+        PopupMenuItem(
+          value: item.status == 'archived' ? 'active' : 'archived',
+          child: Text(item.status == 'archived' ? '移回资料库' : '归档'),
         ),
-      ),
+        const PopupMenuItem(value: 'reanalyze', child: Text('重新生成 AI 分析')),
+      ],
     );
   }
+}
+
+String _freshnessLabel(LinkItem item) {
+  final checkedAt = item.extraction.fetchedAt ?? item.coverCheckedAt;
+  if (checkedAt == null) {
+    return '等待更新';
+  }
+  final elapsed = DateTime.now().difference(checkedAt);
+  if (elapsed.isNegative || elapsed.inMinutes < 60) {
+    return '刚刚更新';
+  }
+  if (elapsed.inHours < 24) {
+    return '${elapsed.inHours} 小时前更新';
+  }
+  if (elapsed.inDays < 30) {
+    return '${elapsed.inDays} 天前更新';
+  }
+  return DateFormat('MM-dd').format(checkedAt);
 }

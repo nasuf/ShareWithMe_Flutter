@@ -29,8 +29,9 @@ class _ShareWithMeAppState extends State<ShareWithMeApp> {
   @override
   Widget build(BuildContext context) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF0D7F67),
+      seedColor: _accent,
       brightness: Brightness.light,
+      surface: _surface,
     );
     return MaterialApp(
       title: 'ShareWithMe',
@@ -39,45 +40,55 @@ class _ShareWithMeAppState extends State<ShareWithMeApp> {
         colorScheme: scheme,
         useMaterial3: true,
         fontFamily: 'SF Pro Display',
-        scaffoldBackgroundColor: const Color(0xFFF4F7F1),
+        fontFamilyFallback: const ['PingFang SC', 'Helvetica Neue', 'Arial'],
+        scaffoldBackgroundColor: Colors.transparent,
+        dividerColor: _line,
+        splashFactory: InkRipple.splashFactory,
+        visualDensity: VisualDensity.standard,
         appBarTheme: const AppBarTheme(
           centerTitle: false,
           elevation: 0,
           scrolledUnderElevation: 0,
           backgroundColor: Colors.transparent,
-          foregroundColor: Color(0xFF172521),
+          foregroundColor: _ink,
           titleTextStyle: TextStyle(
-            color: Color(0xFF172521),
+            color: _ink,
             fontSize: 20,
             fontWeight: FontWeight.w800,
           ),
           systemOverlayStyle: SystemUiOverlayStyle.dark,
         ),
         cardTheme: CardThemeData(
-          color: Colors.white.withValues(alpha: 0.74),
+          color: Colors.white.withValues(alpha: 0.66),
           elevation: 0,
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
             borderRadius: const BorderRadius.all(Radius.circular(24)),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.58)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.9)),
           ),
         ),
         chipTheme: ChipThemeData(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(999),
-            side: const BorderSide(color: Color(0xFFD7E2DA)),
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.86)),
           ),
-          backgroundColor: Colors.white.withValues(alpha: 0.66),
-          selectedColor: const Color(0xFFD9EFE7),
-          labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          backgroundColor: Colors.white.withValues(alpha: 0.62),
+          selectedColor: _accentSoft,
+          labelStyle: const TextStyle(color: _ink, fontWeight: FontWeight.w600),
+          secondaryLabelStyle: const TextStyle(
+            color: _ink,
+            fontWeight: FontWeight.w700,
+          ),
+          checkmarkColor: _accent,
+          iconTheme: const IconThemeData(color: _accent, size: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF08795F),
+            backgroundColor: _accent,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(18),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             textStyle: const TextStyle(fontWeight: FontWeight.w800),
@@ -85,10 +96,10 @@ class _ShareWithMeAppState extends State<ShareWithMeApp> {
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF172521),
-            side: const BorderSide(color: Color(0xFFD4DED7)),
+            foregroundColor: _ink,
+            side: const BorderSide(color: _line),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(18),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           ),
@@ -96,9 +107,11 @@ class _ShareWithMeAppState extends State<ShareWithMeApp> {
         searchBarTheme: SearchBarThemeData(
           elevation: const WidgetStatePropertyAll(0),
           backgroundColor: WidgetStatePropertyAll(
-            Colors.white.withValues(alpha: 0.72),
+            Colors.white.withValues(alpha: 0.67),
           ),
-          side: const WidgetStatePropertyAll(BorderSide(color: Colors.white)),
+          side: WidgetStatePropertyAll(
+            BorderSide(color: Colors.white.withValues(alpha: 0.92)),
+          ),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
           ),
@@ -108,18 +121,18 @@ class _ShareWithMeAppState extends State<ShareWithMeApp> {
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.72),
+          fillColor: Colors.white.withValues(alpha: 0.68),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: const BorderSide(color: Color(0xFFD7E2DA)),
+            borderRadius: BorderRadius.circular(18),
+            borderSide: const BorderSide(color: _line),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: const BorderSide(color: Color(0xFFD7E2DA)),
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.92)),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: const BorderSide(color: Color(0xFF0D7F67), width: 1.4),
+            borderRadius: BorderRadius.circular(18),
+            borderSide: const BorderSide(color: _accent, width: 1.4),
           ),
         ),
       ),

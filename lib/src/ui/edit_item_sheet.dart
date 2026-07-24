@@ -15,94 +15,106 @@ Future<void> showEditItemSheet(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: _ink.withValues(alpha: 0.16),
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setSheetState) {
-          return GlassBackground(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-              ),
-              child: GlassPanel(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+          return ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+              child: ColoredBox(
+                color: Colors.white.withValues(alpha: 0.8),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 16,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            '编辑整理信息',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w900),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '编辑整理信息',
+                                style: Theme.of(context).textTheme.titleLarge
+                                    ?.copyWith(fontWeight: FontWeight.w900),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: '关闭',
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: categoryController,
+                          decoration: InputDecoration(
+                            labelText: '分类',
+                            prefixIcon: const Icon(Icons.folder_outlined),
+                            errorText: validationError,
+                          ),
+                          textInputAction: TextInputAction.next,
+                        ),
+                        const SizedBox(height: 14),
+                        _KeywordEditorField(
+                          keywords: keywords,
+                          inputController: keywordInputController,
+                          onChanged: () => setSheetState(() {}),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: notesController,
+                          minLines: 3,
+                          maxLines: 6,
+                          decoration: const InputDecoration(
+                            labelText: '备注',
+                            prefixIcon: Icon(Icons.notes_outlined),
+                            alignLabelWithHint: true,
                           ),
                         ),
-                        IconButton(
-                          tooltip: '关闭',
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () async {
+                              final category = categoryController.text.trim();
+                              if (category.isEmpty) {
+                                setSheetState(() {
+                                  validationError = '分类不能为空';
+                                });
+                                return;
+                              }
+                              _appendKeyword(
+                                keywords,
+                                keywordInputController.text,
+                              );
+                              await controller.editItem(
+                                item: item,
+                                category: category,
+                                keywords: keywords,
+                                notes: notesController.text,
+                              );
+                              if (context.mounted) {
+                                Navigator.of(context).pop();
+                              }
+                            },
+                            icon: const Icon(Icons.save_outlined),
+                            label: const Text('保存'),
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: categoryController,
-                      decoration: InputDecoration(
-                        labelText: '分类',
-                        prefixIcon: const Icon(Icons.folder_outlined),
-                        errorText: validationError,
-                      ),
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 14),
-                    _KeywordEditorField(
-                      keywords: keywords,
-                      inputController: keywordInputController,
-                      onChanged: () => setSheetState(() {}),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: notesController,
-                      minLines: 3,
-                      maxLines: 6,
-                      decoration: const InputDecoration(
-                        labelText: '备注',
-                        prefixIcon: Icon(Icons.notes_outlined),
-                        alignLabelWithHint: true,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () async {
-                          final category = categoryController.text.trim();
-                          if (category.isEmpty) {
-                            setSheetState(() {
-                              validationError = '分类不能为空';
-                            });
-                            return;
-                          }
-                          _appendKeyword(keywords, keywordInputController.text);
-                          await controller.editItem(
-                            item: item,
-                            category: category,
-                            keywords: keywords,
-                            notes: notesController.text,
-                          );
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        icon: const Icon(Icons.save_outlined),
-                        label: const Text('保存'),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

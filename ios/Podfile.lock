@@ -2,33 +2,20 @@ PODS:
   - Flutter (1.0.0)
   - receive_sharing_intent (1.8.1):
     - Flutter
-  - shared_preferences_foundation (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - url_launcher_ios (0.0.1):
-    - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - receive_sharing_intent (from `.symlinks/plugins/receive_sharing_intent/ios`)
-  - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
-  - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
   receive_sharing_intent:
     :path: ".symlinks/plugins/receive_sharing_intent/ios"
-  shared_preferences_foundation:
-    :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
-  url_launcher_ios:
-    :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  receive_sharing_intent: 222384f00ffe7e952bbfabaa9e3967cb87e5fe00
-  shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
-  url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
+  receive_sharing_intent: 79c848f5b045674ad60b9fea3bafea59962ad2c1
 
 PODFILE CHECKSUM: be34e96bf73fcc5db611065b38c5b3ec36c5dc93
 

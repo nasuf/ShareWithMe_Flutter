@@ -4,6 +4,11 @@ import 'package:share_with_me/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('api client builds bearer authorization headers', () {
+    final api = ApiClient('https://example.com', apiToken: ' secret-token ');
+    expect(api.authorizationHeaders, {'authorization': 'Bearer secret-token'});
+  });
+
   test('parseKeywords normalizes separators and duplicates', () {
     expect(parseKeywords('旅行，攻略 路线、攻略;周末'), ['旅行', '攻略', '路线', '周末']);
   });
@@ -19,7 +24,7 @@ void main() {
 
   test('bootstrap uses persisted backend URL', () async {
     SharedPreferences.setMockInitialValues({
-      'flutter.backend_url': 'http://192.168.1.10:8080',
+      'flutter.backend_url': 'https://share.example.com',
     });
 
     final controller = ShareController(
@@ -30,8 +35,47 @@ void main() {
 
     await controller.restoreSettings();
 
-    expect(controller.api.baseUrl, 'http://192.168.1.10:8080');
+    expect(controller.api.baseUrl, 'https://share.example.com');
     controller.dispose();
+  });
+
+  test('default backend URL points to RackNerd production server', () {
+    expect(defaultBackendUrl(), 'http://192.210.235.115:8080');
+  });
+
+  test(
+    'bootstrap migrates legacy local backend URL to production default',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.backend_url': 'http://192.168.1.106:8080',
+      });
+
+      final controller = ShareController(
+        ApiClient(defaultBackendUrl()),
+        settings: AppSettings(),
+      );
+
+      await controller.restoreSettings();
+
+      expect(controller.api.baseUrl, 'http://192.210.235.115:8080');
+      expect(
+        await AppSettings().loadBackendUrl(),
+        'http://192.210.235.115:8080',
+      );
+      controller.dispose();
+    },
+  );
+
+  test('private backend hosts are treated as stale local defaults', () {
+    expect(isPrivateBackendHost('127.0.0.1'), isTrue);
+    expect(isPrivateBackendHost('localhost'), isTrue);
+    expect(isPrivateBackendHost('10.0.2.2'), isTrue);
+    expect(isPrivateBackendHost('10.1.2.3'), isTrue);
+    expect(isPrivateBackendHost('172.16.0.3'), isTrue);
+    expect(isPrivateBackendHost('172.31.255.1'), isTrue);
+    expect(isPrivateBackendHost('192.168.1.106'), isTrue);
+    expect(isPrivateBackendHost('192.210.235.115'), isFalse);
+    expect(isPrivateBackendHost('share.example.com'), isFalse);
   });
 
   test('normalizeBackendUrl accepts common LAN inputs', () {
@@ -58,9 +102,33 @@ void main() {
     await tester.pumpWidget(const ShareWithMeApp());
     await tester.pump();
 
-    expect(find.text('ShareWithMe'), findsOneWidget);
+    expect(find.textContaining('资料库'), findsWidgets);
     expect(find.text('资料库'), findsWidgets);
     expect(find.text('洞察'), findsWidgets);
+  });
+
+  testWidgets('library shows a retry state when the backend is unavailable', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final controller = ShareController(
+      _FailingApiClient(_sampleItem()),
+      settings: AppSettings(),
+    );
+
+    await controller.refresh();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShareScope(
+          controller: controller,
+          child: Scaffold(body: InboxPage(controller: controller)),
+        ),
+      ),
+    );
+
+    expect(find.text('暂时无法连接资料服务'), findsOneWidget);
+    expect(find.text('重新连接'), findsOneWidget);
+    controller.dispose();
   });
 
   testWidgets('add link sheet validates empty shared text', (tester) async {
@@ -73,7 +141,7 @@ void main() {
     await _pumpAddSheetHarness(tester, controller);
     await tester.tap(find.text('打开添加'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('解析并整理'));
+    await tester.tap(find.text('解析并收集'));
     await tester.pumpAndSettle();
 
     expect(find.text('请先粘贴分享文本或链接'), findsOneWidget);
@@ -91,11 +159,11 @@ void main() {
     await tester.tap(find.text('打开添加'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'https://example.com/a');
-    await tester.tap(find.text('解析并整理'));
+    await tester.tap(find.text('解析并收集'));
     await tester.pumpAndSettle();
 
     expect(find.text('Exception: 无法连接后端'), findsOneWidget);
-    expect(find.text('添加链接'), findsOneWidget);
+    expect(find.text('收集链接'), findsOneWidget);
     controller.dispose();
   });
 
@@ -111,11 +179,11 @@ void main() {
     await tester.tap(find.text('打开添加'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'https://example.com/a');
-    await tester.tap(find.text('解析并整理'));
+    await tester.tap(find.text('解析并收集'));
     await tester.pumpAndSettle();
 
     expect(api.analyzedTexts, ['https://example.com/a']);
-    expect(find.text('添加链接'), findsNothing);
+    expect(find.text('收集链接'), findsNothing);
     controller.dispose();
   });
 
@@ -137,8 +205,8 @@ void main() {
       ),
     );
 
-    expect(find.text('导出 Markdown'), findsOneWidget);
-    expect(find.text('导出 JSON 备份'), findsOneWidget);
+    expect(find.text('复制 Markdown'), findsOneWidget);
+    expect(find.text('复制 JSON 备份'), findsOneWidget);
     expect(find.text('导入 JSON 备份'), findsOneWidget);
     expect(controller.api.exportJsonUri().path, '/api/export/json');
     controller.dispose();
@@ -310,6 +378,11 @@ class _FakeApiClient extends ApiClient {
   }
 
   @override
+  Future<LinkItem> refreshContent(String id, {bool force = false}) async {
+    return item;
+  }
+
+  @override
   Future<List<LinkItem>> listItems({
     String query = '',
     String category = '',
@@ -348,5 +421,25 @@ class _FakeApiClient extends ApiClient {
       'deepseek_configured': false,
       'deepseek_model': 'deepseek-v4-flash',
     };
+  }
+}
+
+class _FailingApiClient extends _FakeApiClient {
+  _FailingApiClient(super.item);
+
+  @override
+  Future<List<LinkItem>> listItems({
+    String query = '',
+    String category = '',
+    String platform = '',
+    String status = 'active',
+    String sort = 'newest',
+  }) {
+    throw Exception('connection refused');
+  }
+
+  @override
+  Future<Map<String, dynamic>> health() {
+    throw Exception('connection refused');
   }
 }

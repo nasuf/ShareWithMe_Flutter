@@ -27,6 +27,14 @@ class LinkItem {
     this.remoteImageUrl,
     this.coverCachedAt,
     this.coverCheckedAt,
+    this.sharedText = '',
+    this.originalContent = const OriginalContent.empty(),
+    this.media = const [],
+    this.sourceFacts = const [],
+    this.sourceId,
+    this.publishedAt,
+    this.userEditedAt,
+    this.extraction = const ExtractionState.legacy(),
   });
 
   final String id;
@@ -43,6 +51,14 @@ class LinkItem {
   final DateTime? coverCheckedAt;
   final String contentText;
   final String originalText;
+  final String sharedText;
+  final OriginalContent originalContent;
+  final List<MediaAsset> media;
+  final List<SourceFact> sourceFacts;
+  final String? sourceId;
+  final DateTime? publishedAt;
+  final DateTime? userEditedAt;
+  final ExtractionState extraction;
   final String summary;
   final String category;
   final List<String> keywords;
@@ -73,6 +89,27 @@ class LinkItem {
       originalText:
           (json['original_text'] as String?) ??
           (json['content_text'] as String),
+      sharedText: (json['shared_text'] as String?) ?? '',
+      originalContent: OriginalContent.fromJson(
+        json['original_content'] as Map<String, dynamic>?,
+        fallbackText:
+            (json['original_text'] as String?) ??
+            (json['content_text'] as String),
+      ),
+      media: ((json['media'] as List<dynamic>?) ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(MediaAsset.fromJson)
+          .toList(),
+      sourceFacts: ((json['source_facts'] as List<dynamic>?) ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(SourceFact.fromJson)
+          .toList(),
+      sourceId: json['source_id'] as String?,
+      publishedAt: _parseOptionalDateTime(json['published_at']),
+      userEditedAt: _parseOptionalDateTime(json['user_edited_at']),
+      extraction: ExtractionState.fromJson(
+        json['extraction'] as Map<String, dynamic>?,
+      ),
       summary: json['summary'] as String,
       category: json['category'] as String,
       keywords: (json['keywords'] as List<dynamic>).cast<String>(),
@@ -84,6 +121,183 @@ class LinkItem {
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
       updatedAt: DateTime.parse(json['updated_at'] as String).toLocal(),
+    );
+  }
+
+  bool get contentNeedsRefresh {
+    final refreshAfter = extraction.refreshAfter;
+    return refreshAfter == null || !refreshAfter.isAfter(DateTime.now());
+  }
+}
+
+class OriginalContent {
+  const OriginalContent({
+    required this.format,
+    required this.plainText,
+    required this.blocks,
+  });
+
+  const OriginalContent.empty()
+    : format = '',
+      plainText = '',
+      blocks = const [];
+
+  final String format;
+  final String plainText;
+  final List<ContentBlock> blocks;
+
+  factory OriginalContent.fromJson(
+    Map<String, dynamic>? json, {
+    required String fallbackText,
+  }) {
+    if (json == null) {
+      return OriginalContent(
+        format: 'plain-text',
+        plainText: fallbackText,
+        blocks: fallbackText.trim().isEmpty
+            ? const []
+            : [ContentBlock(kind: 'paragraph', text: fallbackText)],
+      );
+    }
+    return OriginalContent(
+      format: (json['format'] as String?) ?? '',
+      plainText: (json['plain_text'] as String?) ?? fallbackText,
+      blocks: ((json['blocks'] as List<dynamic>?) ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(ContentBlock.fromJson)
+          .toList(),
+    );
+  }
+}
+
+class ContentBlock {
+  const ContentBlock({
+    required this.kind,
+    this.text = '',
+    this.level,
+    this.url,
+    this.alt,
+    this.items = const [],
+  });
+
+  final String kind;
+  final String text;
+  final int? level;
+  final String? url;
+  final String? alt;
+  final List<String> items;
+
+  factory ContentBlock.fromJson(Map<String, dynamic> json) {
+    return ContentBlock(
+      kind: (json['kind'] as String?) ?? 'paragraph',
+      text: (json['text'] as String?) ?? '',
+      level: json['level'] as int?,
+      url: json['url'] as String?,
+      alt: json['alt'] as String?,
+      items: ((json['items'] as List<dynamic>?) ?? []).cast<String>(),
+    );
+  }
+}
+
+class MediaAsset {
+  const MediaAsset({
+    required this.kind,
+    required this.url,
+    this.cachedUrl,
+    this.thumbnailUrl,
+    this.alt,
+    this.width,
+    this.height,
+    this.durationSeconds,
+  });
+
+  final String kind;
+  final String url;
+  final String? cachedUrl;
+  final String? thumbnailUrl;
+  final String? alt;
+  final int? width;
+  final int? height;
+  final double? durationSeconds;
+
+  factory MediaAsset.fromJson(Map<String, dynamic> json) {
+    return MediaAsset(
+      kind: (json['kind'] as String?) ?? 'image',
+      url: (json['url'] as String?) ?? '',
+      cachedUrl: json['cached_url'] as String?,
+      thumbnailUrl: json['thumbnail_url'] as String?,
+      alt: json['alt'] as String?,
+      width: json['width'] as int?,
+      height: json['height'] as int?,
+      durationSeconds: (json['duration_seconds'] as num?)?.toDouble(),
+    );
+  }
+}
+
+class SourceFact {
+  const SourceFact({
+    required this.key,
+    required this.label,
+    required this.value,
+  });
+
+  final String key;
+  final String label;
+  final String value;
+
+  factory SourceFact.fromJson(Map<String, dynamic> json) {
+    return SourceFact(
+      key: (json['key'] as String?) ?? '',
+      label: (json['label'] as String?) ?? '',
+      value: (json['value'] as String?) ?? '',
+    );
+  }
+}
+
+class ExtractionState {
+  const ExtractionState({
+    required this.status,
+    required this.adapter,
+    required this.method,
+    required this.completeness,
+    this.fetchedAt,
+    this.refreshAfter,
+    this.contentFingerprint,
+    this.lastError,
+  });
+
+  const ExtractionState.legacy()
+    : status = 'legacy',
+      adapter = 'legacy',
+      method = 'legacy',
+      completeness = 0,
+      fetchedAt = null,
+      refreshAfter = null,
+      contentFingerprint = null,
+      lastError = null;
+
+  final String status;
+  final String adapter;
+  final String method;
+  final int completeness;
+  final DateTime? fetchedAt;
+  final DateTime? refreshAfter;
+  final String? contentFingerprint;
+  final String? lastError;
+
+  factory ExtractionState.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return const ExtractionState.legacy();
+    }
+    return ExtractionState(
+      status: (json['status'] as String?) ?? 'legacy',
+      adapter: (json['adapter'] as String?) ?? 'legacy',
+      method: (json['method'] as String?) ?? 'legacy',
+      completeness: (json['completeness'] as int?) ?? 0,
+      fetchedAt: _parseOptionalDateTime(json['fetched_at']),
+      refreshAfter: _parseOptionalDateTime(json['refresh_after']),
+      contentFingerprint: json['content_fingerprint'] as String?,
+      lastError: json['last_error'] as String?,
     );
   }
 }
