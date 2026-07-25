@@ -1,6 +1,6 @@
 part of '../../main.dart';
 
-class ShareController extends ChangeNotifier {
+class ShareController extends ChangeNotifier with WidgetsBindingObserver {
   ShareController(this.api, {required this.settings});
 
   ApiClient api;
@@ -12,6 +12,8 @@ class ShareController extends ChangeNotifier {
   final Set<String> _contentRefreshesInFlight = {};
   final Set<String> _autoContentRefreshesTried = {};
   final Set<String> _analysisPollsInFlight = {};
+  final Set<String> _handledClipboardUrls = {};
+  bool _clipboardImportInFlight = false;
   CollectionStats? stats;
   CollectionDigest? digest;
   AnalyzerStatus? analyzerStatus;
@@ -39,8 +41,19 @@ class ShareController extends ChangeNotifier {
       debugPrint('Failed to restore app settings: $exception');
       debugPrintStack(stackTrace: stackTrace);
     }
+    await _loadHandledClipboard();
+    WidgetsBinding.instance.addObserver(this);
     _startShareListener();
     await refresh();
+    // Auto-import a link from the clipboard on launch, with no extra tap.
+    await maybeImportClipboard();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(maybeImportClipboard());
+    }
   }
 
   void _startShareListener() {
@@ -447,6 +460,40 @@ class ShareController extends ChangeNotifier {
     }
   }
 
+  Future<void> _loadHandledClipboard() async {
+    final last = await settings.loadLastClipboardImport();
+    if (last != null && last.isNotEmpty) {
+      _handledClipboardUrls.add(last);
+    }
+  }
+
+  // Reads the clipboard and, if it holds a not-yet-seen link, analyzes it in the
+  // background — no confirmation tap. The last handled link is remembered (in
+  // memory and on disk) so the same link is not re-imported on every open.
+  Future<void> maybeImportClipboard() async {
+    if (_clipboardImportInFlight) {
+      return;
+    }
+    _clipboardImportInFlight = true;
+    try {
+      if (!await Clipboard.hasStrings()) {
+        return;
+      }
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final url = _firstUrlFromText(data?.text ?? '');
+      if (url == null || _handledClipboardUrls.contains(url)) {
+        return;
+      }
+      _handledClipboardUrls.add(url);
+      await settings.saveLastClipboardImport(url);
+      await analyzeSharedText(text: url, sourceApp: 'clipboard');
+    } on PlatformException catch (exception) {
+      debugPrint('Clipboard is temporarily unavailable: $exception');
+    } finally {
+      _clipboardImportInFlight = false;
+    }
+  }
+
   Future<void> _listenForSharedLinks() async {
     try {
       final initial = await ReceiveSharingIntent.instance.getInitialMedia();
@@ -482,6 +529,7 @@ class ShareController extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _queryDebounce?.cancel();
     _shareSubscription?.cancel();
     super.dispose();

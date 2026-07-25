@@ -67,7 +67,6 @@ class _InboxPageState extends State<InboxPage> {
                       _ServiceUnavailableBanner(onRetry: controller.refresh),
                       const SizedBox(height: 10),
                     ],
-                    _ClipboardImportBanner(controller: controller),
                   ],
                 ),
               ),
