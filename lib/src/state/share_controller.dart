@@ -124,6 +124,20 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(refresh());
   }
 
+  // Opens a folder from an aggregate view such as Insights. Unlike
+  // [setCategory] this never toggles the filter off, and it hands the user back
+  // to the library so they land on the contents they just tapped.
+  void openCategory(String value) {
+    final folder = value.trim();
+    if (folder.isEmpty) {
+      return;
+    }
+    category = folder;
+    tabIndex = 0;
+    notifyListeners();
+    unawaited(refresh());
+  }
+
   void setPlatform(String value) {
     platform = platform == value ? '' : value;
     notifyListeners();
@@ -332,6 +346,19 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
       debugPrint('Cover refresh failed for ${item.id}: $exception');
     } finally {
       _coverRefreshesInFlight.remove(item.id);
+    }
+  }
+
+  /// Returns an error message, or null on success.
+  Future<String?> captureArchive(LinkItem item) async {
+    try {
+      final updated = await api.captureArchive(item.id);
+      _replaceItem(updated);
+      notifyListeners();
+      return null;
+    } catch (exception) {
+      debugPrint('Archive capture failed for ${item.id}: $exception');
+      return '生成存档失败：原链接可能已失效或暂时无法访问';
     }
   }
 

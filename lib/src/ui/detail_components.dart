@@ -81,7 +81,7 @@ class _DetailTopBar extends StatelessWidget {
             }
           },
           itemBuilder: (_) => [
-            const PopupMenuItem(value: 'edit', child: Text('编辑分类与关键词')),
+            const PopupMenuItem(value: 'edit', child: Text('编辑收藏夹与关键词')),
             PopupMenuItem(
               value: 'favorite',
               child: Text(item.status == 'favorite' ? '取消重要' : '标为重要'),
@@ -264,6 +264,22 @@ class _DetailArticle extends StatelessWidget {
         ],
         _DetailSection(
           title: '原文',
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SourceModeButton(
+                icon: Icons.public,
+                label: '原网页',
+                onTap: () => openSourceWebPage(context, item),
+              ),
+              const SizedBox(width: 6),
+              _SourceModeButton(
+                icon: Icons.photo_library_outlined,
+                label: '存档',
+                onTap: () => openArchiveSnapshot(context, item),
+              ),
+            ],
+          ),
           child: OriginalContentView(
             item: item,
             backendUrl: controller.api.baseUrl,
@@ -392,6 +408,47 @@ class _DetailSection extends StatelessWidget {
   }
 }
 
+class _SourceModeButton extends StatelessWidget {
+  const _SourceModeButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _mint.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15, color: _ink),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: _ink,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DetailActionBar extends StatelessWidget {
   const _DetailActionBar({required this.item});
 
@@ -413,12 +470,9 @@ class _DetailActionBar extends StatelessWidget {
           child: SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: () => launchUrl(
-                Uri.parse(item.finalUrl),
-                mode: LaunchMode.externalApplication,
-              ),
-              icon: const Icon(Icons.open_in_new, size: 19),
-              label: const Text('打开原链接'),
+              onPressed: () => openSourceWebPage(context, item),
+              icon: const Icon(Icons.public, size: 19),
+              label: const Text('查看原网页'),
             ),
           ),
         ),

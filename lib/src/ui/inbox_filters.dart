@@ -120,7 +120,7 @@ class _LibraryFilterSheet extends StatelessWidget {
                     ),
                     if ((stats?.categories ?? []).isNotEmpty) ...[
                       const SizedBox(height: 22),
-                      const _FilterHeading('主题'),
+                      const _FilterHeading('收藏夹'),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,

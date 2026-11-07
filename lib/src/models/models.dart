@@ -36,6 +36,7 @@ class LinkItem {
     this.publishedAt,
     this.userEditedAt,
     this.extraction = const ExtractionState.legacy(),
+    this.archive,
   });
 
   final String id;
@@ -60,6 +61,7 @@ class LinkItem {
   final DateTime? publishedAt;
   final DateTime? userEditedAt;
   final ExtractionState extraction;
+  final ArchiveSnapshot? archive;
   final String summary;
   final String category;
   final List<String> keywords;
@@ -112,6 +114,7 @@ class LinkItem {
       extraction: ExtractionState.fromJson(
         json['extraction'] as Map<String, dynamic>?,
       ),
+      archive: ArchiveSnapshot.tryParse(json['archive']),
       summary: json['summary'] as String,
       category: json['category'] as String,
       keywords: (json['keywords'] as List<dynamic>).cast<String>(),
@@ -169,6 +172,41 @@ class OriginalContent {
           .whereType<Map<String, dynamic>>()
           .map(ContentBlock.fromJson)
           .toList(),
+    );
+  }
+}
+
+/// A screenshot of the source taken when it was saved, so the original layout
+/// stays viewable after the link stops working.
+class ArchiveSnapshot {
+  const ArchiveSnapshot({
+    required this.url,
+    required this.width,
+    required this.height,
+    required this.capturedAt,
+  });
+
+  final String url;
+  final int width;
+  final int height;
+  final DateTime capturedAt;
+
+  static ArchiveSnapshot? tryParse(Object? json) {
+    if (json is! Map<String, dynamic>) {
+      return null;
+    }
+    final url = (json['url'] as String?)?.trim() ?? '';
+    final width = (json['width'] as num?)?.toInt() ?? 0;
+    final height = (json['height'] as num?)?.toInt() ?? 0;
+    final capturedAt = _parseOptionalDateTime(json['captured_at']);
+    if (url.isEmpty || width <= 0 || height <= 0 || capturedAt == null) {
+      return null;
+    }
+    return ArchiveSnapshot(
+      url: url,
+      width: width,
+      height: height,
+      capturedAt: capturedAt,
     );
   }
 }

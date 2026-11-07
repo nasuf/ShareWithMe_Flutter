@@ -9,6 +9,7 @@ Future<void> showEditItemSheet(
   final keywordInputController = TextEditingController();
   final notesController = TextEditingController(text: item.notes);
   final keywords = [...item.keywords];
+  final existingFolders = _existingFolders(controller, item.category);
   String? validationError;
 
   await showModalBottomSheet<void>(
@@ -59,12 +60,53 @@ Future<void> showEditItemSheet(
                         TextField(
                           controller: categoryController,
                           decoration: InputDecoration(
-                            labelText: '分类',
+                            labelText: '收藏夹',
                             prefixIcon: const Icon(Icons.folder_outlined),
                             errorText: validationError,
+                            helperText: existingFolders.isEmpty
+                                ? null
+                                : '点选已有收藏夹，或输入新名称',
                           ),
                           textInputAction: TextInputAction.next,
+                          onChanged: (_) {
+                            if (validationError != null) {
+                              setSheetState(() => validationError = null);
+                            }
+                          },
                         ),
+                        if (existingFolders.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          ValueListenableBuilder<TextEditingValue>(
+                            valueListenable: categoryController,
+                            builder: (context, value, _) {
+                              final current = value.text.trim();
+                              return Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final folder in existingFolders)
+                                    ChoiceChip(
+                                      selected: current == folder,
+                                      showCheckmark: false,
+                                      avatar: const Icon(
+                                        Icons.folder_outlined,
+                                        size: 16,
+                                      ),
+                                      label: Text(folder),
+                                      onSelected: (_) {
+                                        categoryController.text = folder;
+                                        if (validationError != null) {
+                                          setSheetState(
+                                            () => validationError = null,
+                                          );
+                                        }
+                                      },
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
                         const SizedBox(height: 14),
                         _KeywordEditorField(
                           keywords: keywords,
@@ -90,7 +132,7 @@ Future<void> showEditItemSheet(
                               final category = categoryController.text.trim();
                               if (category.isEmpty) {
                                 setSheetState(() {
-                                  validationError = '分类不能为空';
+                                  validationError = '收藏夹名称不能为空';
                                 });
                                 return;
                               }
@@ -126,6 +168,24 @@ Future<void> showEditItemSheet(
   categoryController.dispose();
   keywordInputController.dispose();
   notesController.dispose();
+}
+
+// Folders already in use, most used first, so editing reuses one instead of
+// spawning a near-duplicate through a typo. The item's own folder is included
+// even when the current stats snapshot does not cover it.
+List<String> _existingFolders(ShareController controller, String current) {
+  final folders = <String>{};
+  for (final bucket in controller.stats?.categories ?? const <CountBucket>[]) {
+    final label = bucket.label.trim();
+    if (label.isNotEmpty) {
+      folders.add(label);
+    }
+  }
+  final trimmed = current.trim();
+  if (trimmed.isNotEmpty) {
+    folders.add(trimmed);
+  }
+  return folders.toList(growable: false);
 }
 
 class _KeywordEditorField extends StatelessWidget {

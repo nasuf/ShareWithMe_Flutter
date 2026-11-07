@@ -305,7 +305,6 @@ class _CardMoreMenu extends StatelessWidget {
     return PopupMenuButton<String>(
       tooltip: '更多操作',
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
       color: Colors.white.withValues(alpha: 0.96),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       icon: const Icon(Icons.more_horiz_rounded, color: _mutedInk, size: 20),
@@ -319,7 +318,7 @@ class _CardMoreMenu extends StatelessWidget {
         }
       },
       itemBuilder: (_) => [
-        const PopupMenuItem(value: 'edit', child: Text('编辑分类与关键词')),
+        const PopupMenuItem(value: 'edit', child: Text('编辑收藏夹与关键词')),
         PopupMenuItem(
           value: 'favorite',
           child: Text(item.status == 'favorite' ? '取消重要' : '标为重要'),

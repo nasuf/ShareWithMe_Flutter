@@ -18,15 +18,20 @@ class OriginalContentView extends StatelessWidget {
         .whereType<String>()
         .where((url) => url.isNotEmpty)
         .toSet();
-    final additionalMedia = item.media
-        .where(
-          (asset) =>
-              asset.kind == 'image' &&
-              asset.url.trim().isNotEmpty &&
-              !referencedUrls.contains(asset.url.trim()),
-        )
-        .take(6)
-        .toList(growable: false);
+    // When images are placed inline, the leftover media is usually just the
+    // cover again; only show a trailing gallery for image-less snapshots.
+    final hasInlineImages = blocks.any((block) => block.kind == 'image');
+    final additionalMedia = hasInlineImages
+        ? const <MediaAsset>[]
+        : item.media
+              .where(
+                (asset) =>
+                    asset.kind == 'image' &&
+                    asset.url.trim().isNotEmpty &&
+                    !referencedUrls.contains(asset.url.trim()),
+              )
+              .take(6)
+              .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -43,7 +48,10 @@ class OriginalContentView extends StatelessWidget {
               block: blocks[index],
               imageUrl: _imageUrlFor(blocks[index]),
             ),
-            if (index != blocks.length - 1) const SizedBox(height: 12),
+            if (index != blocks.length - 1)
+              SizedBox(
+                height: blocks[index + 1].kind == 'caption' ? 6 : 12,
+              ),
           ],
         if (additionalMedia.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -252,13 +260,26 @@ class _ContentBlockView extends StatelessWidget {
         if (url == null || url.isEmpty) {
           return const SizedBox.shrink();
         }
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: Image.network(
-            url,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                const SizedBox.shrink(),
+        return GestureDetector(
+          onTap: () => openImageViewer(context, url),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.network(
+              url,
+              width: double.infinity,
+              fit: BoxFit.fitWidth,
+              errorBuilder: (context, error, stackTrace) =>
+                  const SizedBox.shrink(),
+            ),
+          ),
+        );
+      case 'caption':
+        return SelectableText(
+          block.text,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: _mutedInk,
+            height: 1.45,
           ),
         );
       case 'link':

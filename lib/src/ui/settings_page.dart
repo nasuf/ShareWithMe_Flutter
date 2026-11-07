@@ -121,7 +121,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   _SettingsActionRow(
                     icon: Icons.psychology_alt_outlined,
                     title: '检测 AI 分析服务',
-                    subtitle: '验证摘要、分类与关键词能力',
+                    subtitle: '验证摘要、收藏夹与关键词能力',
                     onTap: widget.controller.checkingAnalyzer
                         ? null
                         : widget.controller.checkAnalyzer,

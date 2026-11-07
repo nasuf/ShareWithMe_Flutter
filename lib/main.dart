@@ -10,6 +10,7 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simple_icons/simple_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 part 'src/app/share_with_me_app.dart';
 part 'src/core/backend_config.dart';
@@ -26,6 +27,7 @@ part 'src/ui/inbox_card_media.dart';
 part 'src/ui/detail_page.dart';
 part 'src/ui/detail_components.dart';
 part 'src/ui/content_widgets.dart';
+part 'src/ui/source_views.dart';
 part 'src/ui/edit_item_sheet.dart';
 part 'src/ui/insights_page.dart';
 part 'src/ui/settings_page.dart';

@@ -24,7 +24,7 @@ class InsightsPage extends StatelessWidget {
                 PageHeader(
                   eyebrow: '',
                   title: '洞察',
-                  subtitle: '从近期收藏中识别主题、来源与反复出现的线索。',
+                  subtitle: '按收藏夹、来源和高频标签梳理你的近期收藏。',
                   trailing: GlassIconButton(
                     tooltip: '刷新洞察',
                     onPressed: controller.loading ? null : controller.refresh,
@@ -36,7 +36,7 @@ class InsightsPage extends StatelessWidget {
                 const SizedBox(height: 18),
                 _DigestStory(digest: digest),
                 const SizedBox(height: 18),
-                _DistributionPanel(stats: stats),
+                _DistributionPanel(stats: stats, controller: controller),
                 if ((digest?.recentItems ?? []).isNotEmpty) ...[
                   const SizedBox(height: 24),
                   Text(
@@ -69,7 +69,7 @@ class _InsightMetricsBar extends StatelessWidget {
     final metrics = [
       ('资料', '${stats?.total ?? 0}'),
       ('平台', '${stats?.platforms.length ?? 0}'),
-      ('主题', '${stats?.categories.length ?? 0}'),
+      ('收藏夹', '${stats?.categories.length ?? 0}'),
       ('标签', '${stats?.keywords.length ?? 0}'),
     ];
     return GlassPanel(
@@ -212,9 +212,10 @@ class _DigestStory extends StatelessWidget {
 }
 
 class _DistributionPanel extends StatelessWidget {
-  const _DistributionPanel({required this.stats});
+  const _DistributionPanel({required this.stats, required this.controller});
 
   final CollectionStats? stats;
+  final ShareController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -234,9 +235,10 @@ class _DistributionPanel extends StatelessWidget {
           ),
           const SizedBox(height: 17),
           _DistributionList(
-            title: '主题',
+            title: '收藏夹',
             icon: Icons.folder_outlined,
             buckets: stats?.categories ?? const [],
+            onSelect: controller.openCategory,
           ),
           const Divider(height: 28, color: _line),
           _DistributionList(
@@ -263,12 +265,14 @@ class _DistributionList extends StatelessWidget {
     required this.icon,
     required this.buckets,
     this.platforms = false,
+    this.onSelect,
   });
 
   final String title;
   final IconData icon;
   final List<CountBucket> buckets;
   final bool platforms;
+  final ValueChanged<String>? onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -302,12 +306,17 @@ class _DistributionList extends StatelessWidget {
           for (var index = 0; index < visible.length; index++)
             Padding(
               padding: EdgeInsets.only(
-                bottom: index == visible.length - 1 ? 0 : 11,
+                bottom: index == visible.length - 1
+                    ? 0
+                    : (onSelect == null ? 11 : 4),
               ),
               child: _DistributionRow(
                 bucket: visible[index],
                 max: max,
                 platform: platforms ? visible[index].label : null,
+                onTap: onSelect == null
+                    ? null
+                    : () => onSelect!(visible[index].label),
               ),
             ),
       ],
@@ -320,17 +329,19 @@ class _DistributionRow extends StatelessWidget {
     required this.bucket,
     required this.max,
     this.platform,
+    this.onTap,
   });
 
   final CountBucket bucket;
   final int max;
   final String? platform;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final style = platform == null ? null : platformStyle(platform!);
     final color = style?.color ?? _accent;
-    return Row(
+    final row = Row(
       children: [
         if (platform != null) ...[
           PlatformBrandMark(platform: platform!, size: 20, flat: true),
@@ -370,7 +381,27 @@ class _DistributionRow extends StatelessWidget {
             ).textTheme.labelMedium?.copyWith(color: _mutedInk),
           ),
         ),
+        if (onTap != null)
+          const Icon(Icons.chevron_right_rounded, size: 17, color: _mutedInk),
       ],
+    );
+    if (onTap == null) {
+      return row;
+    }
+    return Semantics(
+      button: true,
+      label: '打开收藏夹 ${bucket.label}',
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: row,
+          ),
+        ),
+      ),
     );
   }
 }

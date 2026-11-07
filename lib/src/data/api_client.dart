@@ -142,6 +142,16 @@ class ApiClient {
     return LinkItem.fromJson(_decodeObject(response));
   }
 
+  /// Re-captures the archive screenshot from the live source (slow: renders the
+  /// page in a headless browser on the backend).
+  Future<LinkItem> captureArchive(String id) async {
+    final response = await _post(
+      _uri('/api/items/$id/archive'),
+      timeout: _analysisTimeout,
+    );
+    return LinkItem.fromJson(_decodeObject(response));
+  }
+
   Future<LinkItem> refreshCover(String id, {bool force = false}) async {
     final response = await _post(
       _uri('/api/items/$id/cover/refresh', {'force': force ? 'true' : null}),
