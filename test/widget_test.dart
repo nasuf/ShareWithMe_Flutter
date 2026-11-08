@@ -401,12 +401,10 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final item = _sampleItem();
-    final controller = ShareController(
-      _FakeApiClient(item),
-      settings: AppSettings(),
-    )
-      ..loading = false
-      ..items = [item];
+    final controller =
+        ShareController(_FakeApiClient(item), settings: AppSettings())
+          ..loading = false
+          ..items = [item];
 
     await tester.pumpWidget(
       MaterialApp(
@@ -466,12 +464,10 @@ void main() {
         'captured_at': '2026-11-07T05:45:14Z',
       },
     });
-    final controller = ShareController(
-      _FakeApiClient(item),
-      settings: AppSettings(),
-    )
-      ..loading = false
-      ..items = [item];
+    final controller =
+        ShareController(_FakeApiClient(item), settings: AppSettings())
+          ..loading = false
+          ..items = [item];
 
     await tester.pumpWidget(
       MaterialApp(
@@ -499,6 +495,54 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(transform.value.entry(0, 0), closeTo(fitScale, 0.001));
+    controller.dispose();
+  });
+
+  testWidgets('detail page loads full article text for a slim list row', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final full = _sampleItem();
+    final slim = LinkItem(
+      id: full.id,
+      sourceUrl: full.sourceUrl,
+      finalUrl: full.finalUrl,
+      platform: full.platform,
+      title: full.title,
+      description: full.description,
+      contentText: '',
+      originalText: '',
+      summary: full.summary,
+      category: full.category,
+      keywords: full.keywords,
+      entities: full.entities,
+      sentiment: full.sentiment,
+      contentType: full.contentType,
+      importanceScore: full.importanceScore,
+      notes: full.notes,
+      status: full.status,
+      createdAt: full.createdAt,
+      updatedAt: full.updatedAt,
+      contentOmitted: true,
+    );
+    final api = _FakeApiClient(full);
+    final controller = ShareController(api, settings: AppSettings())
+      ..loading = false
+      ..items = [slim];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShareScope(
+          controller: controller,
+          child: const DetailPage(itemId: 'item-1'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(api.fetchedIds, ['item-1']);
+    expect(controller.itemById('item-1')?.contentOmitted, isFalse);
+    expect(find.text('正在加载原文…'), findsNothing);
     controller.dispose();
   });
 
@@ -598,6 +642,13 @@ class _FakeApiClient extends ApiClient {
   final List<String> deletedIds = [];
   final List<String> importedBackups = [];
   final List<String> updatedCategories = [];
+  final List<String> fetchedIds = [];
+
+  @override
+  Future<LinkItem> getItem(String id) async {
+    fetchedIds.add(id);
+    return item;
+  }
 
   @override
   Future<LinkItem> updateItem({

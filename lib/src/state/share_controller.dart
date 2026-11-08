@@ -7,6 +7,9 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
   final AppSettings settings;
   List<LinkItem> items = [];
   final Map<String, LinkItem> _itemCache = {};
+  // Full items (with article text) fetched on demand; list rows are slim.
+  final Map<String, LinkItem> _fullItems = {};
+  final Set<String> _fullItemLoadsInFlight = {};
   final Set<String> _coverRefreshesInFlight = {};
   final Set<String> _autoCoverRefreshesTried = {};
   final Set<String> _contentRefreshesInFlight = {};
@@ -95,18 +98,55 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   LinkItem? itemById(String id) {
-    return items.where((item) => item.id == id).firstOrNull ?? _itemCache[id];
+    final latest =
+        items.where((item) => item.id == id).firstOrNull ?? _itemCache[id];
+    final full = _fullItems[id];
+    // A slim row newer than the full copy means the item changed on the
+    // server; return the row so the detail page fetches it again.
+    if (full != null &&
+        (latest == null || !full.updatedAt.isBefore(latest.updatedAt))) {
+      return full;
+    }
+    return latest;
   }
 
   void _rememberItems(Iterable<LinkItem> values) {
     for (final item in values) {
       _itemCache[item.id] = item;
+      _rememberFull(item);
     }
   }
 
   void _replaceItem(LinkItem updated) {
     _itemCache[updated.id] = updated;
+    _rememberFull(updated);
     items = [for (final item in items) item.id == updated.id ? updated : item];
+  }
+
+  void _rememberFull(LinkItem item) {
+    if (!item.contentOmitted) {
+      _fullItems[item.id] = item;
+    }
+  }
+
+  /// Fetches the full item (article text, blocks) when only the slim list row
+  /// is known. Safe to call repeatedly.
+  Future<void> ensureFullItem(String id) async {
+    final current = itemById(id);
+    if (current == null ||
+        !current.contentOmitted ||
+        !_fullItemLoadsInFlight.add(id)) {
+      return;
+    }
+    try {
+      final full = await api.getItem(id);
+      _rememberFull(full);
+      notifyListeners();
+    } catch (exception) {
+      debugPrint('Full item load failed for $id: $exception');
+    } finally {
+      _fullItemLoadsInFlight.remove(id);
+    }
   }
 
   void setQuery(String value) {
@@ -317,6 +357,7 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> deleteItem(LinkItem item) async {
     await api.deleteItem(item.id);
     _itemCache.remove(item.id);
+    _fullItems.remove(item.id);
     await refresh();
   }
 

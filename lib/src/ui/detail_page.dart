@@ -28,6 +28,11 @@ class _DetailPageState extends State<DetailPage> {
       requestedFreshness = true;
       unawaited(controller.ensureFresh(item));
     }
+    // List rows carry no article text; load it (re-runs when a newer slim
+    // row replaces the full copy).
+    if (item != null && item.contentOmitted) {
+      unawaited(controller.ensureFullItem(item.id));
+    }
   }
 
   Future<void> _loadMissingItem(ShareController controller) async {

@@ -73,6 +73,8 @@ class ApiClient {
         'platform': platform,
         'status': status,
         'sort': sort,
+        // Card fields only; full article text is fetched per item on open.
+        'fields': 'summary',
       }),
     );
     final decoded = _decodeList(response);

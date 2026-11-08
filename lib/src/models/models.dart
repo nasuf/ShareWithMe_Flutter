@@ -37,6 +37,7 @@ class LinkItem {
     this.userEditedAt,
     this.extraction = const ExtractionState.legacy(),
     this.archive,
+    this.contentOmitted = false,
   });
 
   final String id;
@@ -62,6 +63,10 @@ class LinkItem {
   final DateTime? userEditedAt;
   final ExtractionState extraction;
   final ArchiveSnapshot? archive;
+
+  /// True for library-list rows: article text was left out to keep the list
+  /// small, and the full item must be fetched before showing the original.
+  final bool contentOmitted;
   final String summary;
   final String category;
   final List<String> keywords;
@@ -115,6 +120,7 @@ class LinkItem {
         json['extraction'] as Map<String, dynamic>?,
       ),
       archive: ArchiveSnapshot.tryParse(json['archive']),
+      contentOmitted: (json['content_omitted'] as bool?) ?? false,
       summary: json['summary'] as String,
       category: json['category'] as String,
       keywords: (json['keywords'] as List<dynamic>).cast<String>(),

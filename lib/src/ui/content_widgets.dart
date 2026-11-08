@@ -12,6 +12,27 @@ class OriginalContentView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (item.contentOmitted) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '正在加载原文…',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: _mutedInk),
+            ),
+          ],
+        ),
+      );
+    }
     final blocks = item.originalContent.blocks;
     final referencedUrls = blocks
         .map((block) => block.url?.trim())
@@ -49,9 +70,7 @@ class OriginalContentView extends StatelessWidget {
               imageUrl: _imageUrlFor(blocks[index]),
             ),
             if (index != blocks.length - 1)
-              SizedBox(
-                height: blocks[index + 1].kind == 'caption' ? 6 : 12,
-              ),
+              SizedBox(height: blocks[index + 1].kind == 'caption' ? 6 : 12),
           ],
         if (additionalMedia.isNotEmpty) ...[
           const SizedBox(height: 16),
