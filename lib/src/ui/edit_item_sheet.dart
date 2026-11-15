@@ -16,149 +16,134 @@ Future<void> showEditItemSheet(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
+    enableDrag: false,
     backgroundColor: Colors.transparent,
     barrierColor: _ink.withValues(alpha: 0.16),
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setSheetState) {
-          return ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-              child: ColoredBox(
-                color: Colors.white.withValues(alpha: 0.8),
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    top: 16,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '编辑整理信息',
-                                style: Theme.of(context).textTheme.titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.w900),
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: '关闭',
-                              onPressed: () => Navigator.of(context).pop(),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
+          return GlassSheet(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              10,
+              20,
+              MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '编辑整理信息',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
                         ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: categoryController,
-                          decoration: InputDecoration(
-                            labelText: '收藏夹',
-                            prefixIcon: const Icon(Icons.folder_outlined),
-                            errorText: validationError,
-                            helperText: existingFolders.isEmpty
-                                ? null
-                                : '点选已有收藏夹，或输入新名称',
-                          ),
-                          textInputAction: TextInputAction.next,
-                          onChanged: (_) {
-                            if (validationError != null) {
-                              setSheetState(() => validationError = null);
-                            }
-                          },
-                        ),
-                        if (existingFolders.isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          ValueListenableBuilder<TextEditingValue>(
-                            valueListenable: categoryController,
-                            builder: (context, value, _) {
-                              final current = value.text.trim();
-                              return Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final folder in existingFolders)
-                                    ChoiceChip(
-                                      selected: current == folder,
-                                      showCheckmark: false,
-                                      avatar: const Icon(
-                                        Icons.folder_outlined,
-                                        size: 16,
-                                      ),
-                                      label: Text(folder),
-                                      onSelected: (_) {
-                                        categoryController.text = folder;
-                                        if (validationError != null) {
-                                          setSheetState(
-                                            () => validationError = null,
-                                          );
-                                        }
-                                      },
-                                    ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
-                        const SizedBox(height: 14),
-                        _KeywordEditorField(
-                          keywords: keywords,
-                          inputController: keywordInputController,
-                          onChanged: () => setSheetState(() {}),
-                        ),
-                        const SizedBox(height: 14),
-                        TextField(
-                          controller: notesController,
-                          minLines: 3,
-                          maxLines: 6,
-                          decoration: const InputDecoration(
-                            labelText: '备注',
-                            prefixIcon: Icon(Icons.notes_outlined),
-                            alignLabelWithHint: true,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: () async {
-                              final category = categoryController.text.trim();
-                              if (category.isEmpty) {
-                                setSheetState(() {
-                                  validationError = '收藏夹名称不能为空';
-                                });
-                                return;
-                              }
-                              _appendKeyword(
-                                keywords,
-                                keywordInputController.text,
-                              );
-                              await controller.editItem(
-                                item: item,
-                                category: category,
-                                keywords: keywords,
-                                notes: notesController.text,
-                              );
-                              if (context.mounted) {
-                                Navigator.of(context).pop();
-                              }
-                            },
-                            icon: const Icon(Icons.save_outlined),
-                            label: const Text('保存'),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
+                    IconButton(
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: categoryController,
+                  decoration: InputDecoration(
+                    labelText: '收藏夹',
+                    prefixIcon: const Icon(Icons.folder_outlined),
+                    errorText: validationError,
+                    helperText: existingFolders.isEmpty
+                        ? null
+                        : '点选已有收藏夹，或输入新名称',
+                  ),
+                  textInputAction: TextInputAction.next,
+                  onChanged: (_) {
+                    if (validationError != null) {
+                      setSheetState(() => validationError = null);
+                    }
+                  },
+                ),
+                if (existingFolders.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: categoryController,
+                    builder: (context, value, _) {
+                      final current = value.text.trim();
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final folder in existingFolders)
+                            ChoiceChip(
+                              selected: current == folder,
+                              showCheckmark: false,
+                              avatar: const Icon(
+                                Icons.folder_outlined,
+                                size: 16,
+                              ),
+                              label: Text(folder),
+                              onSelected: (_) {
+                                categoryController.text = folder;
+                                if (validationError != null) {
+                                  setSheetState(() => validationError = null);
+                                }
+                              },
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+                const SizedBox(height: 14),
+                _KeywordEditorField(
+                  keywords: keywords,
+                  inputController: keywordInputController,
+                  onChanged: () => setSheetState(() {}),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: notesController,
+                  minLines: 3,
+                  maxLines: 6,
+                  decoration: const InputDecoration(
+                    labelText: '备注',
+                    prefixIcon: Icon(Icons.notes_outlined),
+                    alignLabelWithHint: true,
                   ),
                 ),
-              ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () async {
+                      final category = categoryController.text.trim();
+                      if (category.isEmpty) {
+                        setSheetState(() {
+                          validationError = '收藏夹名称不能为空';
+                        });
+                        return;
+                      }
+                      _appendKeyword(keywords, keywordInputController.text);
+                      await controller.editItem(
+                        item: item,
+                        category: category,
+                        keywords: keywords,
+                        notes: notesController.text,
+                      );
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('保存'),
+                  ),
+                ),
+              ],
             ),
           );
         },

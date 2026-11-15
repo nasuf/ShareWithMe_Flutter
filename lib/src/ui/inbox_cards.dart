@@ -1,22 +1,34 @@
 part of '../../main.dart';
 
-class LinkCard extends StatefulWidget {
-  const LinkCard({
+bool _isVideoItem(LinkItem item) {
+  final type = item.contentType.toLowerCase();
+  return type.contains('video') ||
+      type.contains('视频') ||
+      const {'哔哩哔哩', 'YouTube', '抖音', 'TikTok', '快手'}.contains(item.platform);
+}
+
+/// One row of the library's grouped glass list. Rows are drawn without a
+/// backdrop blur (the ambient backdrop behind them is already soft), so long
+/// lists scroll smoothly.
+class LibraryRow extends StatefulWidget {
+  const LibraryRow({
     super.key,
     required this.item,
     required this.controller,
-    this.lastInGroup = false,
+    required this.first,
+    required this.last,
   });
 
   final LinkItem item;
   final ShareController controller;
-  final bool lastInGroup;
+  final bool first;
+  final bool last;
 
   @override
-  State<LinkCard> createState() => _LinkCardState();
+  State<LibraryRow> createState() => _LibraryRowState();
 }
 
-class _LinkCardState extends State<LinkCard> {
+class _LibraryRowState extends State<LibraryRow> {
   @override
   void initState() {
     super.initState();
@@ -24,7 +36,7 @@ class _LinkCardState extends State<LinkCard> {
   }
 
   @override
-  void didUpdateWidget(covariant LinkCard oldWidget) {
+  void didUpdateWidget(covariant LibraryRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.id != widget.item.id ||
         oldWidget.item.extraction.refreshAfter !=
@@ -41,312 +53,255 @@ class _LinkCardState extends State<LinkCard> {
     });
   }
 
-  void _openDetail() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ShareScope(
-          controller: widget.controller,
-          child: DetailPage(itemId: widget.item.id),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
     final style = platformStyle(item.platform);
-    final imageUrl = resolveBackendMediaUrl(
-      widget.controller.api.baseUrl,
-      item.imageUrl?.trim() ?? '',
+    const corner = Radius.circular(28);
+    final shape = BorderRadius.vertical(
+      top: widget.first ? corner : Radius.zero,
+      bottom: widget.last ? corner : Radius.zero,
     );
-    final keywords = item.keywords
-        .where(
-          (keyword) => keyword.trim().isNotEmpty && keyword != item.category,
-        )
-        .take(2)
-        .toList(growable: false);
+    final meta = [
+      style.label,
+      if (item.category.trim().isNotEmpty) item.category.trim(),
+    ].join(' · ');
     return RepaintBoundary(
       child: Semantics(
         button: true,
-        label: '${item.platform}，${item.title}',
-        child: _InsetGalleryCardFrame(
-          onTap: _openDetail,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
-                child: CardCoverMedia(
-                  imageUrl: imageUrl,
-                  item: item,
-                  style: style,
-                  onError: () =>
-                      widget.controller.refreshCover(item, force: true),
-                ),
+        label: '${style.label}，${item.title}',
+        excludeSemantics: true,
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.66),
+          shape: RoundedRectangleBorder(
+            borderRadius: shape,
+            side: BorderSide(color: _glassRim, width: 0.6),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _openDetail(context, widget.controller, item),
+            onLongPress: () =>
+                _showItemActions(context, widget.controller, item),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                14,
+                widget.first ? 14 : 10,
+                12,
+                widget.last ? 14 : 10,
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  color: _ink,
-                                  fontSize: 16.5,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.25,
-                                ),
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        _CardMoreMenu(
-                          item: item,
-                          controller: widget.controller,
-                        ),
-                      ],
-                    ),
-                    if (item.analysisPending) ...[
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 11,
-                            height: 11,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.6,
-                              valueColor: AlwaysStoppedAnimation<Color>(_mint),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      _RowThumbnail(item: item, controller: widget.controller),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _ink,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                height: 1.32,
+                                letterSpacing: -0.1,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'AI 分析中…',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: _mutedInk, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ] else if (item.summary.trim().isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        item.summary,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: _mutedInk,
-                          fontSize: 13,
-                          height: 1.36,
+                            const SizedBox(height: 4),
+                            if (item.analysisPending)
+                              const Row(
+                                children: [
+                                  SizedBox.square(
+                                    dimension: 10,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                    ),
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'AI 分析中…',
+                                    style: TextStyle(
+                                      color: _mutedInk,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              Row(
+                                children: [
+                                  PlatformBrandMark(
+                                    platform: item.platform,
+                                    size: 16,
+                                    flat: true,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      meta,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: _mutedInk,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  if (item.status == 'favorite') ...[
+                                    const SizedBox(width: 6),
+                                    const Icon(
+                                      Icons.star_rounded,
+                                      size: 14,
+                                      color: Color(0xFFE0A100),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                          ],
                         ),
                       ),
-                    ],
-                    if (keywords.isNotEmpty || item.category.isNotEmpty) ...[
-                      const SizedBox(height: 9),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          if (item.category.trim().isNotEmpty)
-                            _CardKeyword(label: item.category),
-                          for (final keyword in keywords)
-                            _CardKeyword(label: keyword),
-                        ],
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: Color(0xFF9AA39E),
                       ),
                     ],
-                    const SizedBox(height: 12),
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: _line.withValues(alpha: 0.88),
+                  ),
+                  if (!widget.last)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 68, top: 10),
+                      child: Divider(height: 0.5, thickness: 0.5, color: _line),
                     ),
-                    const SizedBox(height: 10),
-                    _CardFooter(item: item, style: style),
-                  ],
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InsetGalleryCardFrame extends StatelessWidget {
-  const _InsetGalleryCardFrame({required this.child, required this.onTap});
-
-  final Widget child;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    const radius = 24.0;
-    final shape = BorderRadius.circular(radius);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
-        borderRadius: shape,
-        border: Border.all(color: const Color(0xFFDCE3E8)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF263445).withValues(alpha: 0.08),
-            blurRadius: 30,
-            spreadRadius: -14,
-            offset: const Offset(0, 18),
-          ),
-          BoxShadow(
-            color: const Color(0xFF263445).withValues(alpha: 0.07),
-            blurRadius: 8,
-            spreadRadius: -4,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: shape,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Material(
-            color: Colors.white.withValues(alpha: 0.62),
-            child: InkWell(onTap: onTap, child: child),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CardKeyword extends StatelessWidget {
-  const _CardKeyword({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 150),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: _ink.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.82)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: _mutedInk,
-          fontSize: 11.5,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _CardFooter extends StatelessWidget {
-  const _CardFooter({required this.item, required this.style});
-
-  final LinkItem item;
-  final PlatformStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    final author = (item.author ?? '').trim();
-    final authorAndDate =
-        '${author.isEmpty ? style.label : author}  ·  '
-        '${DateFormat('MM-dd HH:mm').format(item.createdAt)}';
-    return Row(
-      children: [
-        PlatformBrandMark(platform: item.platform, size: 20, flat: true),
-        const SizedBox(width: 7),
-        Expanded(
-          child: Text(
-            authorAndDate,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: _mutedInk,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),
-        const SizedBox(width: 10),
-        const Icon(Icons.sync_rounded, size: 15, color: _mutedInk),
-        const SizedBox(width: 4),
-        Text(
-          _freshnessLabel(item),
-          style: Theme.of(
-            context,
-          ).textTheme.labelSmall?.copyWith(color: _mutedInk, fontSize: 11.5),
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _CardMoreMenu extends StatelessWidget {
-  const _CardMoreMenu({required this.item, required this.controller});
+class _RowThumbnail extends StatelessWidget {
+  const _RowThumbnail({required this.item, required this.controller});
 
   final LinkItem item;
   final ShareController controller;
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      tooltip: '更多操作',
-      padding: EdgeInsets.zero,
-      color: Colors.white.withValues(alpha: 0.96),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      icon: const Icon(Icons.more_horiz_rounded, color: _mutedInk, size: 20),
-      onSelected: (value) async {
-        if (value == 'edit') {
-          await showEditItemSheet(context, controller, item);
-        } else if (value == 'reanalyze') {
-          await controller.reanalyze(item);
-        } else {
-          await controller.updateStatus(item, value);
-        }
-      },
-      itemBuilder: (_) => [
-        const PopupMenuItem(value: 'edit', child: Text('编辑收藏夹与关键词')),
-        PopupMenuItem(
-          value: 'favorite',
-          child: Text(item.status == 'favorite' ? '取消重要' : '标为重要'),
-        ),
-        PopupMenuItem(
-          value: item.status == 'archived' ? 'active' : 'archived',
-          child: Text(item.status == 'archived' ? '移回资料库' : '归档'),
-        ),
-        const PopupMenuItem(value: 'reanalyze', child: Text('重新生成 AI 分析')),
-      ],
+    final url = _coverUrl(controller, item);
+    final style = platformStyle(item.platform);
+    final fallback = ColoredBox(
+      color: style.softColor,
+      child: Center(
+        child: PlatformBrandMark(platform: item.platform, size: 26),
+      ),
+    );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: SizedBox.square(
+        dimension: 56,
+        child: url.isEmpty
+            ? fallback
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    url,
+                    fit: BoxFit.cover,
+                    cacheWidth: 200,
+                    errorBuilder: (_, _, _) {
+                      WidgetsBinding.instance.addPostFrameCallback(
+                        (_) => controller.refreshCover(item, force: true),
+                      );
+                      return fallback;
+                    },
+                  ),
+                  if (_isVideoItem(item))
+                    const Center(
+                      child: Icon(
+                        Icons.play_circle_fill_rounded,
+                        color: Colors.white,
+                        size: 22,
+                        shadows: [
+                          Shadow(color: Color(0x66000000), blurRadius: 6),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+      ),
     );
   }
 }
 
-String _freshnessLabel(LinkItem item) {
-  final checkedAt = item.extraction.fetchedAt ?? item.coverCheckedAt;
-  if (checkedAt == null) {
-    return '等待更新';
+Future<void> _showItemActions(
+  BuildContext context,
+  ShareController controller,
+  LinkItem item,
+) async {
+  final action = await showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    barrierColor: _ink.withValues(alpha: 0.18),
+    builder: (sheetContext) => SafeArea(
+      minimum: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: LiquidGlass(
+        radius: 28,
+        blur: 30,
+        opacity: 0.86,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
+              child: Text(
+                item.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: _mutedInk, fontSize: 13),
+              ),
+            ),
+            for (final option in [
+              ('edit', Icons.edit_outlined, '编辑收藏夹与关键词'),
+              (
+                item.status == 'favorite' ? 'active' : 'favorite',
+                Icons.star_outline_rounded,
+                item.status == 'favorite' ? '取消重要' : '标为重要',
+              ),
+              (
+                item.status == 'archived' ? 'active' : 'archived',
+                Icons.archive_outlined,
+                item.status == 'archived' ? '移回资料库' : '归档',
+              ),
+              ('reanalyze', Icons.auto_awesome_outlined, '重新生成 AI 分析'),
+            ])
+              ListTile(
+                leading: Icon(option.$2, color: _ink),
+                title: Text(option.$3, style: const TextStyle(color: _ink)),
+                onTap: () => Navigator.of(sheetContext).pop(option.$1),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+  if (action == null || !context.mounted) {
+    return;
   }
-  final elapsed = DateTime.now().difference(checkedAt);
-  if (elapsed.isNegative || elapsed.inMinutes < 60) {
-    return '刚刚更新';
+  if (action == 'edit') {
+    await showEditItemSheet(context, controller, item);
+  } else if (action == 'reanalyze') {
+    await controller.reanalyze(item);
+  } else {
+    await controller.updateStatus(item, action);
   }
-  if (elapsed.inHours < 24) {
-    return '${elapsed.inHours} 小时前更新';
-  }
-  if (elapsed.inDays < 30) {
-    return '${elapsed.inDays} 天前更新';
-  }
-  return DateFormat('MM-dd').format(checkedAt);
 }

@@ -11,148 +11,148 @@ class _LibraryFilterSheet extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.8),
-                border: Border(
-                  top: BorderSide(color: Colors.white.withValues(alpha: 0.96)),
-                ),
+        return GlassSheet(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '筛选资料',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(color: _ink, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      if (controller.statusFilter != 'active') {
+                        controller.setStatusFilter('active');
+                      }
+                      if (controller.sortMode != 'newest') {
+                        controller.setSortMode('newest');
+                      }
+                      if (controller.category.isNotEmpty) {
+                        controller.setCategory(controller.category);
+                      }
+                      if (controller.platform.isNotEmpty) {
+                        controller.setPlatform(controller.platform);
+                      }
+                    },
+                    child: const Text('恢复默认'),
+                  ),
+                ],
               ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 22),
+              const _FilterHeading('状态'),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final value in const [
+                    ('active', '资料库', Icons.menu_book_outlined),
+                    ('favorite', '重要', Icons.star_outline),
+                    ('archived', '归档', Icons.archive_outlined),
+                    ('', '全部', Icons.all_inbox_outlined),
+                  ])
+                    ChoiceChip(
+                      selected: controller.statusFilter == value.$1,
+                      showCheckmark: false,
+                      avatar: Icon(value.$3, size: 17, color: _accent),
+                      label: Text(value.$2),
+                      labelStyle: const TextStyle(
+                        color: _ink,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      onSelected: (_) => controller.setStatusFilter(value.$1),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              const _FilterHeading('排序'),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final value in const [
+                    ('newest', '最新', Icons.schedule),
+                    ('oldest', '最早', Icons.history),
+                    ('importance', '重要度', Icons.priority_high),
+                  ])
+                    ChoiceChip(
+                      selected: controller.sortMode == value.$1,
+                      showCheckmark: false,
+                      avatar: Icon(value.$3, size: 17, color: _accent),
+                      label: Text(value.$2),
+                      labelStyle: const TextStyle(
+                        color: _ink,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      onSelected: (_) => controller.setSortMode(value.$1),
+                    ),
+                ],
+              ),
+              if ((stats?.categories ?? []).isNotEmpty) ...[
+                const SizedBox(height: 22),
+                const _FilterHeading('收藏夹'),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 42,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFC9CDD3),
-                          borderRadius: BorderRadius.circular(4),
+                    for (final bucket in stats!.categories.take(10))
+                      FilterChip(
+                        selected: controller.category == bucket.label,
+                        label: Text('${bucket.label} ${bucket.count}'),
+                        showCheckmark: false,
+                        labelStyle: const TextStyle(
+                          color: _ink,
+                          fontWeight: FontWeight.w700,
                         ),
+                        onSelected: (_) => controller.setCategory(bucket.label),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '筛选资料',
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  color: _ink,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            if (controller.statusFilter != 'active') {
-                              controller.setStatusFilter('active');
-                            }
-                            if (controller.sortMode != 'newest') {
-                              controller.setSortMode('newest');
-                            }
-                            if (controller.category.isNotEmpty) {
-                              controller.setCategory(controller.category);
-                            }
-                          },
-                          child: const Text('恢复默认'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 22),
-                    const _FilterHeading('状态'),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final value in const [
-                          ('active', '资料库', Icons.menu_book_outlined),
-                          ('favorite', '重要', Icons.star_outline),
-                          ('archived', '归档', Icons.archive_outlined),
-                          ('', '全部', Icons.all_inbox_outlined),
-                        ])
-                          ChoiceChip(
-                            selected: controller.statusFilter == value.$1,
-                            showCheckmark: false,
-                            avatar: Icon(value.$3, size: 17, color: _accent),
-                            label: Text(value.$2),
-                            labelStyle: const TextStyle(
-                              color: _ink,
-                              fontWeight: FontWeight.w700,
-                            ),
-                            onSelected: (_) =>
-                                controller.setStatusFilter(value.$1),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 22),
-                    const _FilterHeading('排序'),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final value in const [
-                          ('newest', '最新', Icons.schedule),
-                          ('oldest', '最早', Icons.history),
-                          ('importance', '重要度', Icons.priority_high),
-                        ])
-                          ChoiceChip(
-                            selected: controller.sortMode == value.$1,
-                            showCheckmark: false,
-                            avatar: Icon(value.$3, size: 17, color: _accent),
-                            label: Text(value.$2),
-                            labelStyle: const TextStyle(
-                              color: _ink,
-                              fontWeight: FontWeight.w700,
-                            ),
-                            onSelected: (_) => controller.setSortMode(value.$1),
-                          ),
-                      ],
-                    ),
-                    if ((stats?.categories ?? []).isNotEmpty) ...[
-                      const SizedBox(height: 22),
-                      const _FilterHeading('收藏夹'),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final bucket in stats!.categories.take(10))
-                            FilterChip(
-                              selected: controller.category == bucket.label,
-                              label: Text('${bucket.label} ${bucket.count}'),
-                              showCheckmark: false,
-                              labelStyle: const TextStyle(
-                                color: _ink,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              onSelected: (_) =>
-                                  controller.setCategory(bucket.label),
-                            ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 26),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('完成'),
-                      ),
-                    ),
                   ],
                 ),
+              ],
+              if ((stats?.platforms ?? []).isNotEmpty) ...[
+                const SizedBox(height: 22),
+                const _FilterHeading('来源平台'),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final bucket in stats!.platforms.take(12))
+                      FilterChip(
+                        selected: controller.platform == bucket.label,
+                        avatar: PlatformBrandMark(
+                          platform: bucket.label,
+                          size: 18,
+                          flat: true,
+                        ),
+                        label: Text('${bucket.label} ${bucket.count}'),
+                        showCheckmark: false,
+                        labelStyle: const TextStyle(
+                          color: _ink,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        onSelected: (_) => controller.setPlatform(bucket.label),
+                      ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 26),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('完成'),
+                ),
               ),
-            ),
+            ],
           ),
         );
       },

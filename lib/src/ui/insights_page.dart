@@ -9,46 +9,90 @@ class InsightsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final stats = controller.stats;
     final digest = controller.digest;
+    final folders = [...?stats?.categories]
+      ..sort((a, b) => b.count.compareTo(a.count));
     return RefreshIndicator(
+      color: _accent,
       onRefresh: controller.refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        padding: const EdgeInsets.fromLTRB(18, 24, 18, 128),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
         children: [
           _ContentWidth(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                PageHeader(
-                  eyebrow: '',
-                  title: '洞察',
-                  subtitle: '按收藏夹、来源和高频标签梳理你的近期收藏。',
-                  trailing: GlassIconButton(
-                    tooltip: '刷新洞察',
-                    onPressed: controller.loading ? null : controller.refresh,
-                    icon: Icons.refresh_rounded,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('全部收藏 · 截至今天', style: _eyebrowStyle(context)),
+                            const SizedBox(height: 2),
+                            Text('洞察', style: _largeTitleStyle(context)),
+                          ],
+                        ),
+                      ),
+                      GlassIconButton(
+                        tooltip: '刷新洞察',
+                        icon: Icons.refresh_rounded,
+                        onPressed: controller.loading
+                            ? null
+                            : controller.refresh,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 14),
-                _InsightMetricsBar(stats: stats),
-                const SizedBox(height: 18),
-                _DigestStory(digest: digest),
-                const SizedBox(height: 18),
-                _DistributionPanel(stats: stats, controller: controller),
-                if ((digest?.recentItems ?? []).isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Text(
-                    '最近进入资料库',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: _ink,
-                      fontWeight: FontWeight.w900,
-                    ),
+                const SizedBox(height: 16),
+                _PlatformRingCard(stats: stats),
+                const SizedBox(height: 12),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: _TopFolderCard(
+                          folder: folders.isEmpty ? null : folders.first,
+                          total: stats?.total ?? 0,
+                          onOpen: controller.openCategory,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _RecentCoversCard(controller: controller),
+                      ),
+                    ],
                   ),
+                ),
+                if (digest != null &&
+                    digest.focusSummary.trim().isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  for (final item in digest!.recentItems.take(5))
-                    _InsightRecentRow(item: item, controller: controller),
+                  _DigestCard(digest: digest),
+                ],
+                if (folders.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _ChipCard(
+                    title: '收藏夹',
+                    buckets: folders.take(12).toList(),
+                    onTap: controller.openCategory,
+                  ),
+                ],
+                if ((stats?.keywords ?? []).isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _ChipCard(
+                    title: '高频标签',
+                    buckets: stats!.keywords.take(12).toList(),
+                    onTap: (tag) {
+                      controller.setQuery(tag);
+                      controller.openSearch();
+                    },
+                  ),
                 ],
               ],
             ),
@@ -59,50 +103,389 @@ class InsightsPage extends StatelessWidget {
   }
 }
 
-class _InsightMetricsBar extends StatelessWidget {
-  const _InsightMetricsBar({required this.stats});
+class _PlatformRingCard extends StatelessWidget {
+  const _PlatformRingCard({required this.stats});
 
   final CollectionStats? stats;
 
   @override
   Widget build(BuildContext context) {
-    final metrics = [
-      ('资料', '${stats?.total ?? 0}'),
-      ('平台', '${stats?.platforms.length ?? 0}'),
-      ('收藏夹', '${stats?.categories.length ?? 0}'),
-      ('标签', '${stats?.keywords.length ?? 0}'),
+    final buckets = [...?stats?.platforms]
+      ..sort((a, b) => b.count.compareTo(a.count));
+    final shown = buckets.take(4).toList();
+    final rest = buckets
+        .skip(4)
+        .fold<int>(0, (sum, bucket) => sum + bucket.count);
+    // Ranked chart colours: brand colours collide (小红书 and 头条 are both
+    // red), so the legend carries the platform and the ring stays legible.
+    const palette = [
+      Color(0xFF0A64D8),
+      Color(0xFFE8590C),
+      Color(0xFF0F9D8A),
+      Color(0xFF7C3AED),
     ];
-    return GlassPanel(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 17),
-      radius: 24,
-      color: Colors.white.withValues(alpha: 0.62),
+    final segments = [
+      for (var index = 0; index < shown.length; index++)
+        (shown[index].label, shown[index].count, palette[index]),
+      if (rest > 0) ('其他', rest, const Color(0xFFB8BEC4)),
+    ];
+    final total = stats?.total ?? 0;
+    return LiquidGlass(
+      radius: 30,
+      padding: const EdgeInsets.all(18),
       child: Row(
         children: [
-          for (var index = 0; index < metrics.length; index++) ...[
-            if (index > 0)
-              const SizedBox(
-                height: 34,
-                child: VerticalDivider(width: 1, color: _line),
+          Semantics(
+            label: [
+              for (final segment in segments) '${segment.$1} ${segment.$2} 条',
+            ].join('，'),
+            child: SizedBox.square(
+              dimension: 128,
+              child: CustomPaint(
+                painter: _RingPainter(segments: segments),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$total',
+                        style: const TextStyle(
+                          color: _ink,
+                          fontSize: 34,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -1,
+                          height: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        '条收藏',
+                        style: TextStyle(
+                          color: _mutedInk,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            Expanded(
-              child: Column(
-                children: [
-                  Text(
-                    metrics[index].$2,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: _ink,
-                      fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: segments.isEmpty
+                ? const Text('还没有收藏', style: TextStyle(color: _mutedInk))
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final segment in segments)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.5),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 9,
+                                height: 9,
+                                decoration: BoxDecoration(
+                                  color: segment.$3,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  platformStyle(segment.$1).label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: _ink,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${segment.$2}',
+                                style: const TextStyle(
+                                  color: _ink,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter({required this.segments});
+
+  final List<(String, int, Color)> segments;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 16.0;
+    final rect = Offset.zero & size;
+    final arcRect = rect.deflate(stroke / 2);
+    final total = segments.fold<int>(0, (sum, segment) => sum + segment.$2);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke;
+    if (total == 0) {
+      canvas.drawArc(
+        arcRect,
+        0,
+        6.283,
+        false,
+        paint..color = _ink.withValues(alpha: 0.08),
+      );
+      return;
+    }
+    const gap = 0.035;
+    var start = -1.5708;
+    for (final segment in segments) {
+      final sweep = segment.$2 / total * 6.2832;
+      canvas.drawArc(
+        arcRect,
+        start + gap / 2,
+        (sweep - gap).clamp(0.01, 6.2832),
+        false,
+        paint..color = segment.$3,
+      );
+      start += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter oldDelegate) =>
+      oldDelegate.segments.toString() != segments.toString();
+}
+
+class _TopFolderCard extends StatelessWidget {
+  const _TopFolderCard({
+    required this.folder,
+    required this.total,
+    required this.onOpen,
+  });
+
+  final CountBucket? folder;
+  final int total;
+  final void Function(String) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = folder;
+    final share = current == null || total == 0 ? 0.0 : current.count / total;
+    return LiquidGlass(
+      radius: 26,
+      padding: const EdgeInsets.all(16),
+      onTap: current == null ? null : () => onOpen(current.label),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '最大收藏夹',
+            style: TextStyle(
+              color: _mutedInk,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            current?.label ?? '—',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _accent,
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.6,
+            ),
+          ),
+          const Spacer(),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: share,
+              minHeight: 6,
+              color: _accent,
+              backgroundColor: _ink.withValues(alpha: 0.08),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            current == null ? '暂无' : '${current.count} / $total 条',
+            style: const TextStyle(color: _mutedInk, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentCoversCard extends StatelessWidget {
+  const _RecentCoversCard({required this.controller});
+
+  final ShareController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final recent = [...controller.items]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final withCovers = recent
+        .where((item) => _coverUrl(controller, item).isNotEmpty)
+        .take(4)
+        .toList();
+    final categories = <String>{
+      for (final item in recent.take(6))
+        if (item.category.trim().isNotEmpty) item.category.trim(),
+    }.take(4).join('、');
+    return LiquidGlass(
+      radius: 26,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '最近收藏',
+            style: TextStyle(
+              color: _mutedInk,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 56,
+            child: Stack(
+              children: [
+                for (var index = 0; index < withCovers.length; index++)
+                  Positioned(
+                    left: index * 30.0,
+                    child: GestureDetector(
+                      onTap: () =>
+                          _openDetail(context, controller, withCovers[index]),
+                      child: Container(
+                        width: 44,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _glassShadow.withValues(alpha: 0.18),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            _coverUrl(controller, withCovers[index]),
+                            fit: BoxFit.cover,
+                            cacheWidth: 160,
+                            errorBuilder: (_, _, _) => ColoredBox(
+                              color: platformStyle(
+                                withCovers[index].platform,
+                              ).softColor,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    metrics[index].$1,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelMedium?.copyWith(color: _mutedInk),
-                  ),
-                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            categories.isEmpty ? '暂无' : categories,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: _mutedInk, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DigestCard extends StatelessWidget {
+  const _DigestCard({required this.digest});
+
+  final CollectionDigest digest;
+
+  @override
+  Widget build(BuildContext context) {
+    return LiquidGlass(
+      radius: 26,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded, size: 16, color: _accent),
+              const SizedBox(width: 6),
+              const Text(
+                'AI 总结',
+                style: TextStyle(
+                  color: _accent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
+              const Spacer(),
+              Text(
+                DateFormat('MM-dd HH:mm').format(digest.generatedAt),
+                style: const TextStyle(color: _mutedInk, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            digest.focusSummary,
+            style: const TextStyle(color: _ink, fontSize: 15, height: 1.55),
+          ),
+          for (final suggestion in digest.suggestions.take(2)) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 7),
+                  child: SizedBox.square(
+                    dimension: 5,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: _accent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    suggestion,
+                    style: const TextStyle(
+                      color: _mutedInk,
+                      fontSize: 14,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -111,353 +494,80 @@ class _InsightMetricsBar extends StatelessWidget {
   }
 }
 
-class _DigestStory extends StatelessWidget {
-  const _DigestStory({required this.digest});
+class _ChipCard extends StatelessWidget {
+  const _ChipCard({
+    required this.title,
+    required this.buckets,
+    required this.onTap,
+  });
 
-  final CollectionDigest? digest;
+  final String title;
+  final List<CountBucket> buckets;
+  final void Function(String) onTap;
 
   @override
   Widget build(BuildContext context) {
-    final current = digest;
-    return GlassPanel(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-      radius: 24,
-      color: Colors.white.withValues(alpha: 0.64),
-      child: current == null
-          ? const SizedBox(
-              height: 96,
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: const BoxDecoration(
-                        color: _accentSoft,
-                        shape: BoxShape.circle,
+    return LiquidGlass(
+      radius: 26,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: _ink,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final bucket in buckets)
+                Material(
+                  color: Colors.white.withValues(alpha: 0.72),
+                  shape: StadiumBorder(
+                    side: BorderSide(color: _glassRim, width: 0.8),
+                  ),
+                  child: InkWell(
+                    customBorder: const StadiumBorder(),
+                    onTap: () => onTap(bucket.label),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
-                      child: const Icon(
-                        Icons.auto_awesome_rounded,
-                        size: 18,
-                        color: _accent,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      '聚合摘要',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: _ink,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      DateFormat('MM-dd HH:mm').format(current.generatedAt),
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelSmall?.copyWith(color: _mutedInk),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  current.focusSummary,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge?.copyWith(color: _ink, height: 1.55),
-                ),
-                if (current.suggestions.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Divider(height: 1, color: _line),
-                  const SizedBox(height: 14),
-                  for (final suggestion in current.suggestions.take(3))
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 9),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.only(top: 7),
-                            child: SizedBox(
-                              width: 5,
-                              height: 5,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: _accent,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
+                          Text(
+                            bucket.label,
+                            style: const TextStyle(
+                              color: _ink,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(width: 9),
-                          Expanded(
-                            child: Text(
-                              suggestion,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: _mutedInk, height: 1.45),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${bucket.count}',
+                            style: const TextStyle(
+                              color: _mutedInk,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
                       ),
                     ),
-                ],
-              ],
-            ),
-    );
-  }
-}
-
-class _DistributionPanel extends StatelessWidget {
-  const _DistributionPanel({required this.stats, required this.controller});
-
-  final CollectionStats? stats;
-  final ShareController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-      radius: 24,
-      color: Colors.white.withValues(alpha: 0.61),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '内容分布',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: _ink,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 17),
-          _DistributionList(
-            title: '收藏夹',
-            icon: Icons.folder_outlined,
-            buckets: stats?.categories ?? const [],
-            onSelect: controller.openCategory,
-          ),
-          const Divider(height: 28, color: _line),
-          _DistributionList(
-            title: '平台',
-            icon: Icons.public,
-            buckets: stats?.platforms ?? const [],
-            platforms: true,
-          ),
-          const Divider(height: 28, color: _line),
-          _DistributionList(
-            title: '标签',
-            icon: Icons.tag,
-            buckets: stats?.keywords ?? const [],
+                  ),
+                ),
+            ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _DistributionList extends StatelessWidget {
-  const _DistributionList({
-    required this.title,
-    required this.icon,
-    required this.buckets,
-    this.platforms = false,
-    this.onSelect,
-  });
-
-  final String title;
-  final IconData icon;
-  final List<CountBucket> buckets;
-  final bool platforms;
-  final ValueChanged<String>? onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final visible = buckets.take(5).toList(growable: false);
-    final max = visible.isEmpty ? 1 : visible.first.count;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 17, color: _accent),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: _ink,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 13),
-        if (visible.isEmpty)
-          Text(
-            '暂无数据',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: _mutedInk),
-          )
-        else
-          for (var index = 0; index < visible.length; index++)
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: index == visible.length - 1
-                    ? 0
-                    : (onSelect == null ? 11 : 4),
-              ),
-              child: _DistributionRow(
-                bucket: visible[index],
-                max: max,
-                platform: platforms ? visible[index].label : null,
-                onTap: onSelect == null
-                    ? null
-                    : () => onSelect!(visible[index].label),
-              ),
-            ),
-      ],
-    );
-  }
-}
-
-class _DistributionRow extends StatelessWidget {
-  const _DistributionRow({
-    required this.bucket,
-    required this.max,
-    this.platform,
-    this.onTap,
-  });
-
-  final CountBucket bucket;
-  final int max;
-  final String? platform;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = platform == null ? null : platformStyle(platform!);
-    final color = style?.color ?? _accent;
-    final row = Row(
-      children: [
-        if (platform != null) ...[
-          PlatformBrandMark(platform: platform!, size: 20, flat: true),
-          const SizedBox(width: 8),
-        ],
-        SizedBox(
-          width: platform == null ? 92 : 75,
-          child: Text(
-            bucket.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: _ink,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(5),
-            child: LinearProgressIndicator(
-              value: bucket.count / max,
-              minHeight: 5,
-              color: color,
-              backgroundColor: color.withValues(alpha: 0.1),
-            ),
-          ),
-        ),
-        SizedBox(
-          width: 32,
-          child: Text(
-            '${bucket.count}',
-            textAlign: TextAlign.right,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: _mutedInk),
-          ),
-        ),
-        if (onTap != null)
-          const Icon(Icons.chevron_right_rounded, size: 17, color: _mutedInk),
-      ],
-    );
-    if (onTap == null) {
-      return row;
-    }
-    return Semantics(
-      button: true,
-      label: '打开收藏夹 ${bucket.label}',
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: row,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InsightRecentRow extends StatelessWidget {
-  const _InsightRecentRow({required this.item, required this.controller});
-
-  final DigestItem item;
-  final ShareController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      child: GlassPanel(
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
-        radius: 20,
-        color: Colors.white.withValues(alpha: 0.58),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ShareScope(
-              controller: controller,
-              child: DetailPage(itemId: item.id),
-            ),
-          ),
-        ),
-        child: Row(
-          children: [
-            PlatformBrandMark(platform: item.platform, size: 32, flat: true),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: _ink,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${item.category} · ${DateFormat('MM-dd HH:mm').format(item.createdAt)}',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelMedium?.copyWith(color: _mutedInk),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, size: 19, color: _mutedInk),
-          ],
-        ),
       ),
     );
   }

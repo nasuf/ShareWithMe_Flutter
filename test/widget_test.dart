@@ -266,7 +266,9 @@ void main() {
 
     expect(find.text('收藏夹'), findsWidgets);
 
-    await tester.tap(find.text('阅读'));
+    // The folder also appears as the top folder and in recent covers; tap the
+    // chip in the folder list.
+    await tester.tap(find.text('阅读').last);
     await tester.pumpAndSettle();
 
     expect(controller.category, '阅读');
@@ -308,7 +310,7 @@ void main() {
     controller.dispose();
   });
 
-  testWidgets('library card menu is not clipped to its trigger size', (
+  testWidgets('long-pressing a library row opens the item actions', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -330,7 +332,12 @@ void main() {
                   alignment: Alignment.topCenter,
                   child: SizedBox(
                     width: 360,
-                    child: LinkCard(item: item, controller: controller),
+                    child: LibraryRow(
+                      item: item,
+                      controller: controller,
+                      first: true,
+                      last: true,
+                    ),
                   ),
                 ),
               ),
@@ -340,15 +347,15 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.longPress(find.byType(LibraryRow));
     await tester.pumpAndSettle();
 
     for (final label in ['编辑收藏夹与关键词', '标为重要', '归档', '重新生成 AI 分析']) {
       expect(find.text(label), findsOneWidget);
     }
-    // The longest label must lay out at its natural width rather than being
-    // squeezed into the trigger-sized box the menu used to inherit.
-    expect(tester.getSize(find.text('编辑收藏夹与关键词')).width, greaterThan(80));
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑收藏夹与关键词'), findsNothing);
     controller.dispose();
   });
 
@@ -371,7 +378,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.tap(find.byTooltip('更多操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('删除').last);
     await tester.pumpAndSettle();
@@ -385,7 +392,7 @@ void main() {
     expect(api.deletedIds, isEmpty);
     expect(find.text('测试链接'), findsOneWidget);
 
-    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.tap(find.byTooltip('更多操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('删除').last);
     await tester.pumpAndSettle();
@@ -396,7 +403,7 @@ void main() {
     controller.dispose();
   });
 
-  testWidgets('detail page opens the archive view from the original section', (
+  testWidgets('detail page opens the archive view from the source section', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -416,7 +423,7 @@ void main() {
     );
 
     await tester.scrollUntilVisible(
-      find.text('存档'),
+      find.text('存档快照'),
       300,
       scrollable: find
           .descendant(
@@ -425,7 +432,10 @@ void main() {
           )
           .first,
     );
-    await tester.tap(find.text('存档'));
+    // Lift the row clear of the floating action bar before tapping it.
+    await tester.drag(find.text('存档快照'), const Offset(0, -240));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('存档快照'));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);

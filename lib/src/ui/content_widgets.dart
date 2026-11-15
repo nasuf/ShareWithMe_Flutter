@@ -420,7 +420,7 @@ class _FactRow extends StatelessWidget {
 ) {
   return switch (status) {
     'complete' => (
-      label: '原文快照已保存',
+      label: '正文已完整保存',
       icon: Icons.verified_outlined,
       color: _mint,
     ),
@@ -430,7 +430,7 @@ class _FactRow extends StatelessWidget {
       icon: Icons.lock_outline,
       color: Color(0xFFE35B52),
     ),
-    'stale' => (label: '保留上次完整快照', icon: Icons.history, color: _mutedInk),
+    'stale' => (label: '保留上次完整正文', icon: Icons.history, color: _mutedInk),
     _ => (label: '等待首次内容刷新', icon: Icons.sync, color: _mutedInk),
   };
 }

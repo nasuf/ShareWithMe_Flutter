@@ -18,249 +18,417 @@ class HomeShell extends StatelessWidget {
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 900;
             return Scaffold(
-              backgroundColor: Colors.transparent,
-              extendBody: true,
+              backgroundColor: _surface,
               body: GlassBackground(
-                child: SafeArea(
-                  bottom: false,
-                  child: Row(
-                    children: [
-                      if (wide) _ReferenceRail(controller: controller),
-                      Expanded(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 320),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeInCubic,
-                          transitionBuilder: (child, animation) {
-                            final slide = Tween<Offset>(
-                              begin: const Offset(0.035, 0),
-                              end: Offset.zero,
-                            ).animate(animation);
-                            return FadeTransition(
-                              opacity: animation,
-                              child: SlideTransition(
-                                position: slide,
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: KeyedSubtree(
-                            key: ValueKey(controller.tabIndex),
-                            child: pages[controller.tabIndex],
+                imageUrls: _backdropUrls(controller),
+                child: Stack(
+                  children: [
+                    SafeArea(
+                      bottom: false,
+                      child: Row(
+                        children: [
+                          if (wide) _ReferenceRail(controller: controller),
+                          Expanded(
+                            // Switch instantly, like iOS tab bars, and keep
+                            // each tab's state. A cross-fade would draw the
+                            // page into a translucent layer, where its glass
+                            // can't see the backdrop and flashes dark.
+                            child: IndexedStack(
+                              index: controller.tabIndex,
+                              children: pages,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Frosts the status bar once the library's folder bar is
+                    // pinned under it, so they read as one bar.
+                    if (controller.tabIndex == 0)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        top: 0,
+                        height: MediaQuery.paddingOf(context).top,
+                        child: IgnorePointer(
+                          child: ValueListenableBuilder<double>(
+                            valueListenable: controller.libraryBarPinned,
+                            builder: (context, pinned, _) =>
+                                FrostedStrip(progress: pinned),
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    if (!wide)
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        bottom: 0,
+                        child: SafeArea(
+                          top: false,
+                          minimum: const EdgeInsets.only(bottom: 12),
+                          child: _GlassTabBar(controller: controller),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              floatingActionButton: wide || controller.tabIndex != 0
-                  ? null
-                  : _CollectFab(controller: controller),
-              floatingActionButtonLocation:
-                  FloatingActionButtonLocation.endFloat,
-              bottomNavigationBar: wide
-                  ? null
-                  : SafeArea(
-                      minimum: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-                      child: _ReferenceBottomNav(controller: controller),
-                    ),
             );
           },
         );
       },
     );
   }
+
+  // One backdrop for every top-level tab, so switching tabs never changes
+  // the colour behind the glass.
+  List<String> _backdropUrls(ShareController controller) {
+    // Filtering reloads `items`, which would otherwise pick a new featured
+    // cover; keep the first one for the session so the backdrop stays put.
+    final featured = _featuredItem(controller);
+    controller.backdropUrl ??= featured == null
+        ? null
+        : _coverUrl(controller, featured);
+    final url = controller.backdropUrl;
+    return url == null ? const [] : [url];
+  }
 }
 
-class _ReferenceBottomNav extends StatelessWidget {
-  const _ReferenceBottomNav({required this.controller});
+String _coverUrl(ShareController controller, LinkItem item) =>
+    resolveBackendMediaUrl(controller.api.baseUrl, item.imageUrl?.trim() ?? '');
+
+/// The library's hero: the most important item with a cover from the last
+/// week, else the newest item with a cover.
+LinkItem? _featuredItem(ShareController controller) {
+  final withCover = controller.items
+      .where((item) => _coverUrl(controller, item).isNotEmpty)
+      .toList();
+  if (withCover.isEmpty) {
+    return null;
+  }
+  final weekAgo = DateTime.now().subtract(const Duration(days: 7));
+  final recent = withCover
+      .where((item) => item.createdAt.isAfter(weekAgo))
+      .toList();
+  final pool = recent.isEmpty ? withCover : recent;
+  return pool.reduce(
+    (best, item) => item.importanceScore > best.importanceScore ? item : best,
+  );
+}
+
+/// The floating tab bar. The selection is a glass droplet: press a tab and it
+/// lifts off the bar, magnifying what is under it, follows the finger across
+/// the tabs, and settles on release with a spring.
+class _GlassTabBar extends StatefulWidget {
+  const _GlassTabBar({required this.controller});
 
   final ShareController controller;
 
   @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(30),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-        child: Container(
-          height: 62,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.68),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.96)),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF263445).withValues(alpha: 0.14),
-                blurRadius: 34,
-                spreadRadius: -12,
-                offset: const Offset(0, 18),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              _ReferenceNavItem(
-                selected: controller.tabIndex == 0,
-                icon: Icons.menu_book_outlined,
-                selectedIcon: Icons.menu_book_rounded,
-                label: '资料库',
-                onTap: () => controller.selectTab(0),
-              ),
-              _ReferenceNavItem(
-                selected: controller.tabIndex == 1,
-                icon: Icons.query_stats_outlined,
-                selectedIcon: Icons.query_stats_rounded,
-                label: '洞察',
-                onTap: () => controller.selectTab(1),
-              ),
-              _ReferenceNavItem(
-                selected: controller.tabIndex == 2,
-                icon: Icons.tune_outlined,
-                selectedIcon: Icons.tune_rounded,
-                label: '设置',
-                onTap: () => controller.selectTab(2),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  State<_GlassTabBar> createState() => _GlassTabBarState();
 }
 
-class _ReferenceNavItem extends StatelessWidget {
-  const _ReferenceNavItem({
-    required this.selected,
-    required this.icon,
-    required this.selectedIcon,
-    required this.label,
-    required this.onTap,
-  });
+class _GlassTabBarState extends State<_GlassTabBar>
+    with TickerProviderStateMixin {
+  static const _tabs = [
+    (Icons.auto_stories_outlined, '资料库'),
+    (Icons.insights_rounded, '洞察'),
+    (Icons.settings_outlined, '设置'),
+  ];
+  static const _barHeight = 62.0;
+  static const _inset = 5.0;
+  static const _spring = SpringDescription(
+    mass: 1,
+    stiffness: 420,
+    damping: 30,
+  );
 
-  final bool selected;
-  final IconData icon;
-  final IconData selectedIcon;
-  final String label;
-  final VoidCallback onTap;
+  /// Droplet position in tab units (0 = first tab), free to sit between tabs.
+  late final AnimationController position = AnimationController.unbounded(
+    vsync: this,
+    value: widget.controller.tabIndex.toDouble(),
+  );
+
+  /// 0 resting in the bar, 1 lifted under the finger.
+  late final AnimationController lift = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+    reverseDuration: const Duration(milliseconds: 320),
+  );
+  bool interacting = false;
+  double slotWidth = 1;
+
+  @override
+  void dispose() {
+    position.dispose();
+    lift.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GlassTabBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Tab changed from elsewhere (search button, insight chips).
+    final target = widget.controller.tabIndex.toDouble();
+    if (!interacting && !position.isAnimating && position.value != target) {
+      _settleTo(target, 0);
+    }
+  }
+
+  double _slotAt(double dx) =>
+      ((dx - _inset) / slotWidth - 0.5).clamp(0.0, _tabs.length - 1.0);
+
+  void _settleTo(double target, double velocity) {
+    position.animateWith(
+      SpringSimulation(_spring, position.value, target, velocity),
+    );
+  }
+
+  void _press(double dx) {
+    interacting = true;
+    position.stop();
+    lift.forward();
+    HapticFeedback.selectionClick();
+  }
+
+  void _drag(double dx) {
+    final slot = _slotAt(dx);
+    if (slot.round() != position.value.round()) {
+      HapticFeedback.selectionClick();
+    }
+    position.value = slot;
+  }
+
+  void _release({double? toSlot, double velocity = 0}) {
+    final target = (toSlot ?? position.value).round().clamp(
+      0,
+      _tabs.length - 1,
+    );
+    interacting = false;
+    _settleTo(target.toDouble(), velocity);
+    lift.reverse();
+    if (target != widget.controller.tabIndex) {
+      widget.controller.selectTab(target);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? _accent : _mutedInk;
-    return Expanded(
-      child: Semantics(
-        selected: selected,
-        button: true,
-        label: label,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(26),
-          onTap: onTap,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 260),
-                curve: Curves.easeOutCubic,
-                margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? Colors.white.withValues(alpha: 0.45)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              ),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      AnimatedScale(
-                        scale: selected ? 1.06 : 1,
-                        duration: const Duration(milliseconds: 240),
-                        curve: Curves.easeOutBack,
-                        child: Icon(
-                          selected ? selectedIcon : icon,
-                          size: 21,
-                          color: color,
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      Text(
-                        label,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: color,
-                          fontWeight: selected
-                              ? FontWeight.w800
-                              : FontWeight.w600,
-                        ),
-                      ),
-                    ],
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: _barHeight,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                slotWidth = (constraints.maxWidth - _inset * 2) / _tabs.length;
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (d) => _press(d.localPosition.dx),
+                  onTapUp: (d) => _release(toSlot: _slotAt(d.localPosition.dx)),
+                  onTapCancel: () {
+                    if (interacting) _release();
+                  },
+                  onHorizontalDragStart: (d) {
+                    if (!interacting) _press(d.localPosition.dx);
+                    _drag(d.localPosition.dx);
+                  },
+                  onHorizontalDragUpdate: (d) => _drag(d.localPosition.dx),
+                  onHorizontalDragEnd: (d) => _release(
+                    velocity: d.velocity.pixelsPerSecond.dx / slotWidth,
                   ),
-                  const SizedBox(height: 4),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeOutCubic,
-                    width: selected ? 20 : 0,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: _accent,
-                      borderRadius: BorderRadius.circular(3),
+                  onHorizontalDragCancel: () => _release(),
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge([position, lift]),
+                    builder: (context, _) => _buildBar(constraints.maxWidth),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        GlassCircleButton(
+          tooltip: '搜索收藏',
+          icon: Icons.search_rounded,
+          size: _barHeight,
+          onPressed: widget.controller.openSearch,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBar(double width) {
+    final pos = position.value;
+    final lifted = Curves.easeOut.transform(lift.value);
+    final active = pos.round();
+    final centerX = _inset + slotWidth * (pos + 0.5);
+    final pillWidth = slotWidth;
+    const pillHeight = _barHeight - _inset * 2;
+    // The lifted droplet swells past the bar's edges.
+    final dropWidth = pillWidth * (1 + 0.18 * lifted);
+    final dropHeight = pillHeight * (1 + 0.42 * lifted);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: LiquidGlass(
+            radius: _barHeight / 2,
+            blur: 28,
+            opacity: 0.7,
+            child: Stack(
+              children: [
+                // Resting selection: a soft white pill under the labels.
+                Positioned(
+                  left: centerX - pillWidth / 2,
+                  top: _inset,
+                  width: pillWidth,
+                  height: pillHeight,
+                  child: Opacity(
+                    opacity: 1 - lifted,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(pillHeight / 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _glassShadow.withValues(alpha: 0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(_inset),
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < _tabs.length; i++)
+                        Expanded(
+                          child: _GlassTabLabel(
+                            icon: _tabs[i].$1,
+                            label: _tabs[i].$2,
+                            selected: i == active,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
+        if (lifted > 0.01)
+          Positioned(
+            left: centerX - dropWidth / 2,
+            top: _barHeight / 2 - dropHeight / 2,
+            width: dropWidth,
+            height: dropHeight,
+            child: IgnorePointer(child: _GlassDroplet(lift: lifted)),
+          ),
+      ],
     );
   }
 }
 
-class _CollectFab extends StatelessWidget {
-  const _CollectFab({required this.controller});
+/// The lifted lens: clear glass that magnifies whatever is beneath it.
+class _GlassDroplet extends StatelessWidget {
+  const _GlassDroplet({required this.lift});
 
-  final ShareController controller;
+  final double lift;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: '收集链接',
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: controller.analyzing
-            ? null
-            : () => showAddLinkSheet(context, controller),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          width: 58,
-          height: 58,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        final radius = BorderRadius.circular(size.height / 2);
+        final zoom = 1 + 0.22 * lift;
+        final cx = size.width / 2;
+        final cy = size.height / 2;
+        final magnify = Matrix4.identity()
+          ..translateByDouble(cx, cy, 0, 1)
+          ..scaleByDouble(zoom, zoom, 1, 1)
+          ..translateByDouble(-cx, -cy, 0, 1);
+        // No Opacity here: it would isolate the BackdropFilter from the bar
+        // beneath and the lens would flash dark. Fade the paint instead.
+        final fade = lift.clamp(0.0, 1.0);
+        return DecoratedBox(
           decoration: BoxDecoration(
-            color: controller.analyzing ? _mutedInk : _mint,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 1.5),
+            borderRadius: radius,
             boxShadow: [
               BoxShadow(
-                color: _accent.withValues(alpha: 0.3),
-                blurRadius: 25,
-                spreadRadius: -7,
-                offset: const Offset(0, 14),
+                color: _glassShadow.withValues(alpha: 0.22 * fade),
+                blurRadius: 24,
+                spreadRadius: -6,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: controller.analyzing
-              ? const Padding(
-                  padding: EdgeInsets.all(19),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+          child: ClipRRect(
+            borderRadius: radius,
+            child: BackdropFilter(
+              filter: ImageFilter.matrix(magnify.storage),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: radius,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.34 * fade),
+                      Colors.white.withValues(alpha: 0.06 * fade),
+                      Colors.white.withValues(alpha: 0.18 * fade),
+                    ],
+                    stops: const [0, 0.55, 1],
                   ),
-                )
-              : const Icon(Icons.add_rounded, color: Colors.white, size: 32),
-        ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.95 * fade),
+                    width: 1.2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GlassTabLabel extends StatelessWidget {
+  const _GlassTabLabel({
+    required this.icon,
+    required this.label,
+    required this.selected,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? _accent : const Color(0xFF26302B);
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 22, color: color),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -285,9 +453,9 @@ class _ReferenceRail extends StatelessWidget {
               const Icon(Icons.bookmarks_rounded, color: _accent, size: 30),
               const SizedBox(height: 24),
               for (final destination in const [
-                (0, Icons.menu_book_outlined, '资料库'),
-                (1, Icons.query_stats_outlined, '洞察'),
-                (2, Icons.tune_outlined, '设置'),
+                (0, Icons.auto_stories_outlined, '资料库'),
+                (1, Icons.insights_rounded, '洞察'),
+                (2, Icons.settings_outlined, '设置'),
               ])
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -300,7 +468,7 @@ class _ReferenceRail extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 11),
                       decoration: BoxDecoration(
                         color: controller.tabIndex == destination.$1
-                            ? _accentSoft
+                            ? Colors.white.withValues(alpha: 0.8)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(16),
                       ),

@@ -1,31 +1,27 @@
 part of '../../main.dart';
 
-const _ink = Color(0xFF192433);
-const _mutedInk = Color(0xFF707A88);
-const _accent = Color(0xFF3E806E);
-const _mint = Color(0xFF7FAE9F);
-const _accentSoft = Color(0xFFE3EEEA);
-const _line = Color(0xFFE1E6EB);
-const _surface = Color(0xFFF6F8FA);
+// Design D tokens: near-black ink, a 7:1 secondary grey and iOS system blue.
+const _ink = Color(0xFF0E1110);
+const _mutedInk = Color(0xFF4D5651);
+const _accent = Color(0xFF0A64D8);
+const _mint = Color(0xFF3D8AE8);
+const _accentSoft = Color(0xFFE3EDFB);
+const _line = Color(0x1F141E19);
+const _surface = Color(0xFFF2F5F3);
 
 class GlassBackground extends StatelessWidget {
-  const GlassBackground({super.key, required this.child});
+  const GlassBackground({
+    super.key,
+    required this.child,
+    this.imageUrls = const [],
+  });
 
   final Widget child;
+  final List<String> imageUrls;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFF8F9FB), Color(0xFFF0F3F6), Color(0xFFF7F8FA)],
-          stops: [0, 0.58, 1],
-        ),
-      ),
-      child: child,
-    );
+    return AmbientBackdrop(imageUrls: imageUrls, child: child);
   }
 }
 
@@ -51,37 +47,13 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shape = BorderRadius.circular(radius);
-    final panel = ClipRRect(
-      borderRadius: shape,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: color ?? Colors.white.withValues(alpha: 0.64),
-            borderRadius: shape,
-            border: Border.all(
-              color: borderColor ?? Colors.white.withValues(alpha: 0.94),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF314052).withValues(alpha: 0.12),
-                blurRadius: 34,
-                spreadRadius: -13,
-                offset: const Offset(0, 18),
-              ),
-            ],
-          ),
-          child: Padding(padding: padding, child: child),
-        ),
-      ),
-    );
-    if (onTap == null) {
-      return panel;
-    }
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(borderRadius: shape, onTap: onTap, child: panel),
+    return LiquidGlass(
+      radius: radius,
+      padding: padding,
+      blur: blurSigma,
+      opacity: color?.a ?? 0.66,
+      onTap: onTap,
+      child: child,
     );
   }
 }
@@ -121,15 +93,7 @@ class PageHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                 ],
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: _ink,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w900,
-                    height: 1.06,
-                  ),
-                ),
+                Text(title, style: _largeTitleStyle(context)),
                 const SizedBox(height: 8),
                 Text(
                   subtitle,
@@ -204,30 +168,6 @@ class SoftTag extends StatelessWidget {
   }
 }
 
-class _ImportancePill extends StatelessWidget {
-  const _ImportancePill({required this.score});
-
-  final int score;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-      decoration: BoxDecoration(
-        color: const Color(0xFF233142).withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        '重要度 $score',
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: _mutedInk,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
 class GlassIconButton extends StatelessWidget {
   const GlassIconButton({
     super.key,
@@ -235,7 +175,7 @@ class GlassIconButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.active = false,
-    this.size = 50,
+    this.size = 44,
   });
 
   final String tooltip;
@@ -246,29 +186,12 @@ class GlassIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: ClipOval(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Material(
-            color: active
-                ? _accentSoft.withValues(alpha: 0.9)
-                : Colors.white.withValues(alpha: 0.58),
-            shape: CircleBorder(
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.94)),
-            ),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: onPressed,
-              child: SizedBox.square(
-                dimension: size,
-                child: Icon(icon, color: active ? _accent : _ink, size: 24),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return GlassCircleButton(
+      tooltip: tooltip,
+      icon: icon,
+      onPressed: onPressed,
+      size: size,
+      foreground: active ? _accent : null,
     );
   }
 }

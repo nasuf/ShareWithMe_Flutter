@@ -30,6 +30,16 @@ class _InboxPageState extends State<InboxPage> {
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
+    final searching = controller.searchOpen || controller.query.isNotEmpty;
+    final filtered =
+        controller.query.isNotEmpty ||
+        controller.category.isNotEmpty ||
+        controller.platform.isNotEmpty;
+    final featured = filtered ? null : _featuredItem(controller);
+    final rows = [
+      for (final item in controller.items)
+        if (item.id != featured?.id) item,
+    ];
     return RefreshIndicator(
       color: _accent,
       onRefresh: controller.refresh,
@@ -41,75 +51,65 @@ class _InboxPageState extends State<InboxPage> {
           SliverToBoxAdapter(
             child: _ContentWidth(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 24, 18, 0),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _LibraryTitleBar(
+                    _LibraryHeader(
                       controller: controller,
-                      total: controller.stats?.total ?? controller.items.length,
                       onFilter: () => _showFilters(context),
                     ),
-                    const SizedBox(height: 13),
-                    _LibrarySearchBar(
-                      controller: controller,
-                      textController: searchController,
-                      focusNode: searchFocus,
-                    ),
-                    const SizedBox(height: 12),
-                    _PlatformIndexBar(
-                      controller: controller,
-                      platforms: controller.stats?.platforms ?? const [],
-                      onFilter: () => _showFilters(context),
-                    ),
-                    const SizedBox(height: 12),
+                    if (searching) ...[
+                      const SizedBox(height: 14),
+                      _LibrarySearchField(
+                        controller: controller,
+                        textController: searchController,
+                        focusNode: searchFocus,
+                      ),
+                    ],
                     if (controller.error != null &&
                         controller.items.isNotEmpty) ...[
+                      const SizedBox(height: 12),
                       _ServiceUnavailableBanner(onRetry: controller.refresh),
-                      const SizedBox(height: 10),
                     ],
+                    if (featured != null) ...[
+                      const SizedBox(height: 16),
+                      _FeaturedCard(item: featured, controller: controller),
+                    ],
+                    const SizedBox(height: 6),
                   ],
                 ),
               ),
             ),
           ),
-          if (controller.loading)
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _PinnedFolderBar(controller: controller),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 6)),
+          if (controller.loading && controller.items.isEmpty)
             const SliverToBoxAdapter(
-              child: _ContentWidth(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(18, 0, 18, 128),
-                  child: _LoadingList(),
-                ),
-              ),
+              child: _ContentWidth(child: _LoadingList()),
             )
           else if (controller.items.isEmpty && controller.error != null)
             SliverToBoxAdapter(
               child: _ContentWidth(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 128),
-                  child: _ServiceUnavailableState(onRetry: controller.refresh),
-                ),
+                child: _ServiceUnavailableState(onRetry: controller.refresh),
               ),
             )
           else if (controller.items.isEmpty)
-            const SliverToBoxAdapter(
-              child: _ContentWidth(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(18, 0, 18, 128),
-                  child: _EmptyState(),
-                ),
-              ),
-            )
+            const SliverToBoxAdapter(child: _ContentWidth(child: _EmptyState()))
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 146),
-              sliver: SliverList.separated(
-                itemCount: controller.items.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 20),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+              sliver: SliverList.builder(
+                itemCount: rows.length,
                 itemBuilder: (context, index) => _ContentWidth(
-                  child: LinkCard(
-                    item: controller.items[index],
+                  child: LibraryRow(
+                    item: rows[index],
                     controller: controller,
-                    lastInGroup: true,
+                    first: index == 0,
+                    last: index == rows.length - 1,
                   ),
                 ),
               ),
@@ -126,6 +126,7 @@ class _InboxPageState extends State<InboxPage> {
       barrierColor: _ink.withValues(alpha: 0.16),
       isScrollControlled: true,
       useSafeArea: true,
+      enableDrag: false,
       builder: (_) => ShareScope(
         controller: widget.controller,
         child: _LibraryFilterSheet(controller: widget.controller),
@@ -151,89 +152,68 @@ class _ContentWidth extends StatelessWidget {
   }
 }
 
-class _LibraryTitleBar extends StatelessWidget {
-  const _LibraryTitleBar({
-    required this.controller,
-    required this.total,
-    required this.onFilter,
-  });
+class _LibraryHeader extends StatelessWidget {
+  const _LibraryHeader({required this.controller, required this.onFilter});
 
   final ShareController controller;
-  final int total;
   final VoidCallback onFilter;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    '资料库',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: _ink,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 11,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _ink.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Text(
-                      '$total',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: _mutedInk,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '我的收藏链接',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(color: _mutedInk, fontSize: 16),
-              ),
-            ],
+    final filtersActive =
+        controller.statusFilter != 'active' ||
+        controller.sortMode != 'newest' ||
+        controller.platform.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _chineseDateLabel(DateTime.now()),
+                  style: _eyebrowStyle(context),
+                ),
+                const SizedBox(height: 2),
+                Text('资料库', style: _largeTitleStyle(context)),
+              ],
+            ),
           ),
-        ),
-        GlassIconButton(
-          tooltip: '刷新资料库',
-          icon: Icons.refresh_rounded,
-          onPressed: controller.loading ? null : controller.refresh,
-        ),
-        const SizedBox(width: 10),
-        GlassIconButton(
-          tooltip: '筛选与排序',
-          icon: Icons.format_list_bulleted_rounded,
-          active:
-              controller.statusFilter != 'active' ||
-              controller.sortMode != 'newest' ||
-              controller.category.isNotEmpty,
-          onPressed: onFilter,
-        ),
-      ],
+          GlassIconButton(
+            tooltip: '筛选与排序',
+            icon: Icons.tune_rounded,
+            active: filtersActive,
+            onPressed: onFilter,
+          ),
+          const SizedBox(width: 10),
+          controller.analyzing
+              ? const SizedBox.square(
+                  dimension: 44,
+                  child: LiquidGlass(
+                    radius: 22,
+                    blur: 20,
+                    child: Padding(
+                      padding: EdgeInsets.all(13),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                )
+              : GlassIconButton(
+                  tooltip: '收集链接',
+                  icon: Icons.add_rounded,
+                  onPressed: () => showAddLinkSheet(context, controller),
+                ),
+        ],
+      ),
     );
   }
 }
 
-class _LibrarySearchBar extends StatelessWidget {
-  const _LibrarySearchBar({
+class _LibrarySearchField extends StatelessWidget {
+  const _LibrarySearchField({
     required this.controller,
     required this.textController,
     required this.focusNode,
@@ -245,167 +225,390 @@ class _LibrarySearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SearchBar(
-      controller: textController,
-      focusNode: focusNode,
-      constraints: const BoxConstraints(minHeight: 54, maxHeight: 54),
-      hintText: '搜索标题、摘要、关键词',
-      hintStyle: const WidgetStatePropertyAll(
-        TextStyle(color: _mutedInk, fontSize: 15),
-      ),
-      leading: const Padding(
-        padding: EdgeInsets.only(left: 3),
-        child: Icon(Icons.search_rounded, size: 25, color: _ink),
-      ),
-      trailing: [
-        if (controller.query.isNotEmpty)
-          IconButton(
-            tooltip: '清空搜索',
-            onPressed: () {
-              textController.clear();
-              controller.setQuery('');
-            },
-            icon: const Icon(Icons.close_rounded, size: 19),
-          )
-        else
-          Container(
-            margin: const EdgeInsets.only(right: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-            decoration: BoxDecoration(
-              color: _ink.withValues(alpha: 0.045),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: const Text(
-              '⌘K',
-              style: TextStyle(
-                color: _mutedInk,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-      ],
-      onChanged: controller.setQuery,
-    );
-  }
-}
-
-class _PlatformIndexBar extends StatelessWidget {
-  const _PlatformIndexBar({
-    required this.controller,
-    required this.platforms,
-    required this.onFilter,
-  });
-
-  final ShareController controller;
-  final List<CountBucket> platforms;
-  final VoidCallback onFilter;
-
-  @override
-  Widget build(BuildContext context) {
-    const corePlatforms = ['小红书', '微博', '今日头条', '微信公众号'];
-    final indexedPlatforms = <String>[
-      ...corePlatforms,
-      for (final bucket in platforms)
-        if (!corePlatforms.contains(bucket.label)) bucket.label,
-    ];
     return SizedBox(
-      height: 36,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: indexedPlatforms.length + 2,
-        separatorBuilder: (_, _) => const SizedBox(width: 5),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return _PlatformFilterChip(
-              label: '全部',
-              selected: controller.platform.isEmpty,
-              onTap: () {
-                if (controller.platform.isNotEmpty) {
-                  controller.setPlatform(controller.platform);
-                }
-              },
-            );
-          }
-          if (index == indexedPlatforms.length + 1) {
-            return _PlatformFilterChip(
-              label: '筛选',
-              icon: Icons.filter_alt_outlined,
-              selected: false,
-              onTap: onFilter,
-            );
-          }
-          final platform = indexedPlatforms[index - 1];
-          return _PlatformFilterChip(
-            label: platformStyle(platform).label,
-            platform: platform,
-            selected: controller.platform == platform,
-            onTap: () => controller.setPlatform(platform),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _PlatformFilterChip extends StatelessWidget {
-  const _PlatformFilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.platform,
-    this.icon,
-  });
-
-  final String label;
-  final String? platform;
-  final IconData? icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: selected
-                ? _accentSoft.withValues(alpha: 0.95)
-                : Colors.white.withValues(alpha: 0.58),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: selected
-                  ? _accent.withValues(alpha: 0.12)
-                  : Colors.white.withValues(alpha: 0.92),
-            ),
-          ),
-          child: Row(
-            children: [
-              if (platform != null) ...[
-                PlatformBrandMark(platform: platform!, size: 18, flat: true),
-                const SizedBox(width: 5),
-              ] else if (icon != null) ...[
-                Icon(icon, size: 17, color: _ink),
-                const SizedBox(width: 5),
-              ],
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: selected ? _accent : _ink,
-                  fontSize: 12.5,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+      height: 48,
+      child: LiquidGlass(
+        radius: 24,
+        blur: 20,
+        opacity: 0.7,
+        padding: const EdgeInsets.only(left: 14, right: 4),
+        child: Row(
+          children: [
+            const Icon(Icons.search_rounded, size: 20, color: _mutedInk),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: textController,
+                focusNode: focusNode,
+                autofocus: controller.searchOpen && controller.query.isEmpty,
+                textInputAction: TextInputAction.search,
+                onChanged: controller.setQuery,
+                style: const TextStyle(color: _ink, fontSize: 16),
+                decoration: const InputDecoration(
+                  hintText: '搜索标题、摘要、关键词',
+                  hintStyle: TextStyle(color: _mutedInk, fontSize: 16),
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  isDense: true,
                 ),
               ),
+            ),
+            IconButton(
+              tooltip: '关闭搜索',
+              onPressed: () {
+                textController.clear();
+                focusNode.unfocus();
+                controller.closeSearch();
+              },
+              icon: const Icon(Icons.close_rounded, size: 20, color: _mutedInk),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeaturedCard extends StatelessWidget {
+  const _FeaturedCard({required this.item, required this.controller});
+
+  final LinkItem item;
+  final ShareController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = platformStyle(item.platform);
+    final byline = [
+      style.label,
+      if (item.category.trim().isNotEmpty) item.category.trim(),
+      if ((item.author ?? '').trim().isNotEmpty) item.author!.trim(),
+    ].join(' · ');
+    return Semantics(
+      button: true,
+      label: '本周精选，${item.title}',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () => _openDetail(context, controller, item),
+        onLongPress: () => _showItemActions(context, controller, item),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: _glassShadow.withValues(alpha: 0.28),
+                blurRadius: 40,
+                spreadRadius: -14,
+                offset: const Offset(0, 18),
+              ),
             ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: SizedBox(
+              height: 244,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    _coverUrl(controller, item),
+                    fit: BoxFit.cover,
+                    cacheWidth: 1000,
+                    errorBuilder: (_, _, _) =>
+                        ColoredBox(color: style.softColor),
+                  ),
+                  const Positioned(
+                    left: 14,
+                    top: 14,
+                    child: _ImageGlassLabel(label: '本周精选'),
+                  ),
+                  if (_isVideoItem(item)) const Center(child: _PlayBadge()),
+                  Positioned(
+                    left: 10,
+                    right: 10,
+                    bottom: 10,
+                    child: LiquidGlass(
+                      radius: 22,
+                      blur: 22,
+                      opacity: 0.22,
+                      dark: false,
+                      shadow: false,
+                      padding: const EdgeInsets.fromLTRB(15, 12, 15, 13),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            byline,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.92),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w700,
+                              height: 1.28,
+                              letterSpacing: -0.2,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0x55000000),
+                                  blurRadius: 10,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _ImageGlassLabel extends StatelessWidget {
+  const _ImageGlassLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return LiquidGlass(
+      radius: 14,
+      blur: 16,
+      opacity: 0.2,
+      shadow: false,
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _PlayBadge extends StatelessWidget {
+  const _PlayBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.square(
+      dimension: 52,
+      child: LiquidGlass(
+        radius: 26,
+        blur: 16,
+        opacity: 0.24,
+        shadow: false,
+        child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 32),
+      ),
+    );
+  }
+}
+
+class _FolderChips extends StatelessWidget {
+  const _FolderChips({required this.controller});
+
+  final ShareController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final folders = [...?controller.stats?.categories]
+      ..sort((a, b) => b.count.compareTo(a.count));
+    final total = controller.stats?.total ?? controller.items.length;
+    return SizedBox(
+      height: 36,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        clipBehavior: Clip.none,
+        children: [
+          _FolderChip(
+            label: '全部',
+            count: total,
+            selected: controller.category.isEmpty,
+            onTap: () {
+              if (controller.category.isNotEmpty) {
+                controller.setCategory(controller.category);
+              }
+            },
+          ),
+          if (controller.platform.isNotEmpty)
+            _FolderChip(
+              label: platformStyle(controller.platform).label,
+              selected: true,
+              removable: true,
+              onTap: () => controller.setPlatform(controller.platform),
+            ),
+          for (final folder in folders.take(10))
+            _FolderChip(
+              label: folder.label,
+              count: folder.count,
+              selected: controller.category == folder.label,
+              onTap: () => controller.setCategory(folder.label),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The folder chips, pinned under the status bar once the header scrolls
+/// away. While pinned, a frosted strip fades in behind them so the list rows
+/// scrolling underneath stay out of the way.
+class _PinnedFolderBar extends SliverPersistentHeaderDelegate {
+  _PinnedFolderBar({required this.controller});
+
+  final ShareController controller;
+
+  static const double _height = 56;
+
+  @override
+  double get minExtent => _height;
+
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    // `overlapsContent` only reports overlap with other pinned headers, so
+    // use how far the bar has scrolled into its pinned position instead.
+    final pinned = (shrinkOffset / 12).clamp(0.0, 1.0);
+    final notifier = controller.libraryBarPinned;
+    if (notifier.value != pinned) {
+      // Can't notify listeners mid-build; hand it to the shell after layout.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifier.value = pinned;
+      });
+    }
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        FrostedStrip(progress: pinned, divider: true),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 0, 10),
+          child: _ContentWidth(child: _FolderChips(controller: controller)),
+        ),
+      ],
+    );
+  }
+
+  // Rebuilt with fresh controller state on every library build.
+  @override
+  bool shouldRebuild(_PinnedFolderBar oldDelegate) => true;
+}
+
+class _FolderChip extends StatelessWidget {
+  const _FolderChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.count,
+    this.removable = false,
+  });
+
+  final String label;
+  final int? count;
+  final bool selected;
+  final bool removable;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = selected ? Colors.white : const Color(0xFF1B211E);
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: foreground,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (count != null) ...[
+          const SizedBox(width: 6),
+          Text(
+            '$count',
+            style: TextStyle(
+              color: foreground.withValues(alpha: 0.62),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        if (removable) ...[
+          const SizedBox(width: 4),
+          Icon(Icons.close_rounded, size: 15, color: foreground),
+        ],
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: selected
+            ? Material(
+                color: _ink,
+                borderRadius: BorderRadius.circular(18),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Center(child: content),
+                  ),
+                ),
+              )
+            : LiquidGlass(
+                radius: 18,
+                blur: 0,
+                opacity: 0.62,
+                shadow: false,
+                onTap: onTap,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Center(widthFactor: 1, child: content),
+              ),
+      ),
+    );
+  }
+}
+
+void _openDetail(
+  BuildContext context,
+  ShareController controller,
+  LinkItem item,
+) {
+  Navigator.of(context).push(
+    _DetailRoute<void>(
+      builder: (_) => ShareScope(
+        controller: controller,
+        child: DetailPage(itemId: item.id),
+      ),
+    ),
+  );
 }

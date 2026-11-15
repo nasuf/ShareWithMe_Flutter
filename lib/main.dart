@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 
+import 'package:flutter/cupertino.dart' show CupertinoRouteTransitionMixin;
+import 'package:flutter/gestures.dart' show VelocityTracker;
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart' show SpringSimulation;
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -23,7 +26,6 @@ part 'src/ui/home_shell.dart';
 part 'src/ui/inbox_page.dart';
 part 'src/ui/inbox_filters.dart';
 part 'src/ui/inbox_cards.dart';
-part 'src/ui/inbox_card_media.dart';
 part 'src/ui/detail_page.dart';
 part 'src/ui/detail_components.dart';
 part 'src/ui/content_widgets.dart';
@@ -35,6 +37,7 @@ part 'src/ui/settings_sheets.dart';
 part 'src/ui/add_link_sheet.dart';
 part 'src/ui/platform_brand.dart';
 part 'src/ui/shared_widgets.dart';
+part 'src/ui/liquid_glass.dart';
 
 void main() {
   runApp(const ShareWithMeApp());

@@ -30,6 +30,15 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _queryDebounce;
   bool _shareListenerStarted = false;
   int tabIndex = 0;
+  // The library's search field is shown on demand from the tab bar's search
+  // button, and stays while a query is active.
+  bool searchOpen = false;
+  // 0..1: how far the library's folder bar has slid into its pinned position.
+  // The shell frosts the status bar with it so the two read as one bar.
+  final ValueNotifier<double> libraryBarPinned = ValueNotifier(0);
+
+  /// Cover behind every top-level tab, fixed once chosen for the session.
+  String? backdropUrl;
   String query = '';
   String category = '';
   String platform = '';
@@ -95,6 +104,21 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
   void selectTab(int index) {
     tabIndex = index;
     notifyListeners();
+  }
+
+  void openSearch() {
+    tabIndex = 0;
+    searchOpen = true;
+    notifyListeners();
+  }
+
+  void closeSearch() {
+    searchOpen = false;
+    if (query.isNotEmpty) {
+      setQuery('');
+    } else {
+      notifyListeners();
+    }
   }
 
   LinkItem? itemById(String id) {
@@ -597,6 +621,7 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    libraryBarPinned.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _queryDebounce?.cancel();
     _shareSubscription?.cancel();
