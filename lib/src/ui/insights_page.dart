@@ -12,7 +12,7 @@ class InsightsPage extends StatelessWidget {
     final folders = [...?stats?.categories]
       ..sort((a, b) => b.count.compareTo(a.count));
     return RefreshIndicator(
-      color: _accent,
+      color: context.tokens.accent,
       onRefresh: controller.refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(
@@ -142,15 +142,17 @@ class _PlatformRingCard extends StatelessWidget {
             child: SizedBox.square(
               dimension: 128,
               child: CustomPaint(
-                painter: _RingPainter(segments: segments),
+                painter: _RingPainter(
+                  segments: segments,
+                  emptyColor: context.tokens.ink.withValues(alpha: 0.08),
+                ),
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         '$total',
-                        style: const TextStyle(
-                          color: _ink,
+                        style: TextStyle(                          color: context.tokens.ink,
                           fontSize: 34,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -1,
@@ -158,10 +160,10 @@ class _PlatformRingCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      const Text(
+                      Text(
                         '条收藏',
                         style: TextStyle(
-                          color: _mutedInk,
+                          color: context.tokens.mutedInk,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -175,7 +177,7 @@ class _PlatformRingCard extends StatelessWidget {
           const SizedBox(width: 18),
           Expanded(
             child: segments.isEmpty
-                ? const Text('还没有收藏', style: TextStyle(color: _mutedInk))
+                ? Text('还没有收藏', style: TextStyle(color: context.tokens.mutedInk))
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -198,8 +200,7 @@ class _PlatformRingCard extends StatelessWidget {
                                   platformStyle(segment.$1).label,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: _ink,
+                                  style: TextStyle(                                    color: context.tokens.ink,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -207,8 +208,7 @@ class _PlatformRingCard extends StatelessWidget {
                               ),
                               Text(
                                 '${segment.$2}',
-                                style: const TextStyle(
-                                  color: _ink,
+                                style: TextStyle(                                  color: context.tokens.ink,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -226,9 +226,10 @@ class _PlatformRingCard extends StatelessWidget {
 }
 
 class _RingPainter extends CustomPainter {
-  _RingPainter({required this.segments});
+  _RingPainter({required this.segments, required this.emptyColor});
 
   final List<(String, int, Color)> segments;
+  final Color emptyColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -245,7 +246,7 @@ class _RingPainter extends CustomPainter {
         0,
         6.283,
         false,
-        paint..color = _ink.withValues(alpha: 0.08),
+        paint..color = emptyColor,
       );
       return;
     }
@@ -291,10 +292,10 @@ class _TopFolderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '最大收藏夹',
             style: TextStyle(
-              color: _mutedInk,
+              color: context.tokens.mutedInk,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -304,8 +305,7 @@ class _TopFolderCard extends StatelessWidget {
             current?.label ?? '—',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _accent,
+            style: TextStyle(              color: context.tokens.accent,
               fontSize: 28,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.6,
@@ -317,14 +317,14 @@ class _TopFolderCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: share,
               minHeight: 6,
-              color: _accent,
-              backgroundColor: _ink.withValues(alpha: 0.08),
+              color: context.tokens.accent,
+              backgroundColor: context.tokens.ink.withValues(alpha: 0.08),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             current == null ? '暂无' : '${current.count} / $total 条',
-            style: const TextStyle(color: _mutedInk, fontSize: 12),
+            style: TextStyle(color: context.tokens.mutedInk, fontSize: 12),
           ),
         ],
       ),
@@ -355,10 +355,10 @@ class _RecentCoversCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '最近收藏',
             style: TextStyle(
-              color: _mutedInk,
+              color: context.tokens.mutedInk,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -382,7 +382,7 @@ class _RecentCoversCard extends StatelessWidget {
                           border: Border.all(color: Colors.white, width: 2),
                           boxShadow: [
                             BoxShadow(
-                              color: _glassShadow.withValues(alpha: 0.18),
+                              color: context.tokens.glassShadow.withValues(alpha: 0.18),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -412,7 +412,7 @@ class _RecentCoversCard extends StatelessWidget {
             categories.isEmpty ? '暂无' : categories,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: _mutedInk, fontSize: 12),
+            style: TextStyle(color: context.tokens.mutedInk, fontSize: 12),
           ),
         ],
       ),
@@ -435,12 +435,12 @@ class _DigestCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome_rounded, size: 16, color: _accent),
+              Icon(Icons.auto_awesome_rounded, size: 16, color: context.tokens.accent),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'AI 总结',
                 style: TextStyle(
-                  color: _accent,
+                  color: context.tokens.accent,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
@@ -448,27 +448,27 @@ class _DigestCard extends StatelessWidget {
               const Spacer(),
               Text(
                 DateFormat('MM-dd HH:mm').format(digest.generatedAt),
-                style: const TextStyle(color: _mutedInk, fontSize: 12),
+                style: TextStyle(color: context.tokens.mutedInk, fontSize: 12),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             digest.focusSummary,
-            style: const TextStyle(color: _ink, fontSize: 15, height: 1.55),
+            style: TextStyle(color: context.tokens.ink, fontSize: 15, height: 1.55),
           ),
           for (final suggestion in digest.suggestions.take(2)) ...[
             const SizedBox(height: 8),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 7),
+                Padding(
+                  padding: const EdgeInsets.only(top: 7),
                   child: SizedBox.square(
                     dimension: 5,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: _accent,
+                        color: context.tokens.accent,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -478,8 +478,7 @@ class _DigestCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     suggestion,
-                    style: const TextStyle(
-                      color: _mutedInk,
+                    style: TextStyle(                      color: context.tokens.mutedInk,
                       fontSize: 14,
                       height: 1.45,
                     ),
@@ -515,8 +514,7 @@ class _ChipCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: _ink,
+            style: TextStyle(              color: context.tokens.ink,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
@@ -530,7 +528,7 @@ class _ChipCard extends StatelessWidget {
                 Material(
                   color: Colors.white.withValues(alpha: 0.72),
                   shape: StadiumBorder(
-                    side: BorderSide(color: _glassRim, width: 0.8),
+                    side: BorderSide(color: context.tokens.glassRim, width: 0.8),
                   ),
                   child: InkWell(
                     customBorder: const StadiumBorder(),
@@ -545,8 +543,7 @@ class _ChipCard extends StatelessWidget {
                         children: [
                           Text(
                             bucket.label,
-                            style: const TextStyle(
-                              color: _ink,
+                            style: TextStyle(                              color: context.tokens.ink,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
@@ -554,8 +551,7 @@ class _ChipCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           Text(
                             '${bucket.count}',
-                            style: const TextStyle(
-                              color: _mutedInk,
+                            style: TextStyle(                              color: context.tokens.mutedInk,
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),

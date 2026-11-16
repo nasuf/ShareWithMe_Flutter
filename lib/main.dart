@@ -36,6 +36,7 @@ part 'src/ui/settings_page.dart';
 part 'src/ui/settings_sheets.dart';
 part 'src/ui/add_link_sheet.dart';
 part 'src/ui/platform_brand.dart';
+part 'src/ui/app_theme.dart';
 part 'src/ui/shared_widgets.dart';
 part 'src/ui/liquid_glass.dart';
 

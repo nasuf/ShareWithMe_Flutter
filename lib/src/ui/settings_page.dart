@@ -56,6 +56,13 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(height: 10),
               _SettingsGroup(
+                title: '外观',
+                children: [
+                  _ThemeModeRow(controller: widget.controller),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SettingsGroup(
                 title: '资料管理',
                 children: [
                   _SettingsActionRow(
@@ -194,7 +201,7 @@ class _SettingsPageState extends State<SettingsPage> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      barrierColor: _ink.withValues(alpha: 0.16),
+      barrierColor: context.tokens.ink.withValues(alpha: 0.16),
       builder: (_) => _ImportJsonSheet(controller: widget.controller),
     );
     if (!context.mounted || result == null) {
@@ -218,6 +225,7 @@ class _SettingsGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -226,7 +234,7 @@ class _SettingsGroup extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: _mutedInk,
+              color: t.mutedInk,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -234,7 +242,6 @@ class _SettingsGroup extends StatelessWidget {
         GlassPanel(
           padding: EdgeInsets.zero,
           radius: 24,
-          color: Colors.white.withValues(alpha: 0.62),
           child: Column(children: children),
         ),
       ],
@@ -261,16 +268,17 @@ class _SettingsActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          border: last ? null : const Border(bottom: BorderSide(color: _line)),
+          border: last ? null : Border(bottom: BorderSide(color: t.line)),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 21, color: _accent),
+            Icon(icon, size: 21, color: t.accent),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -279,27 +287,27 @@ class _SettingsActionRow extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: _ink,
+                      color: t.ink,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: _mutedInk),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: t.mutedInk,
+                    ),
                   ),
                 ],
               ),
             ),
             if (loading)
-              const SizedBox.square(
+              SizedBox.square(
                 dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(strokeWidth: 2, color: t.accent),
               )
             else
-              const Icon(Icons.chevron_right, size: 20, color: _mutedInk),
+              Icon(Icons.chevron_right, size: 20, color: t.mutedInk),
           ],
         ),
       ),
@@ -314,13 +322,17 @@ class _ConnectionStatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
+    final dark = t.brightness == Brightness.dark;
     final healthy = message.contains('已配置') || message.contains('正常');
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 4),
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
       decoration: BoxDecoration(
-        color: healthy ? const Color(0xFFEEF7F1) : const Color(0xFFF2F4F7),
+        color: healthy
+            ? (dark ? const Color(0xFF143020) : const Color(0xFFEEF7F1))
+            : (dark ? const Color(0xFF1F2330) : const Color(0xFFF2F4F7)),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -328,7 +340,7 @@ class _ConnectionStatusRow extends StatelessWidget {
           Icon(
             healthy ? Icons.check_circle_outline : Icons.info_outline,
             size: 17,
-            color: healthy ? const Color(0xFF3B7D56) : _mutedInk,
+            color: healthy ? const Color(0xFF3B7D56) : t.mutedInk,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -336,10 +348,84 @@ class _ConnectionStatusRow extends StatelessWidget {
               message,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: _mutedInk),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: t.mutedInk,
+              ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeModeRow extends StatelessWidget {
+  const _ThemeModeRow({required this.controller});
+
+  final ShareController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.dark_mode_outlined, size: 21, color: t.accent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '主题',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: t.ink,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '切换浅色、深色或跟随系统',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: t.mutedInk,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SegmentedButton<AppThemeMode>(
+            style: SegmentedButton.styleFrom(
+              selectedBackgroundColor: t.accent,
+              selectedForegroundColor: Colors.white,
+              backgroundColor: t.glassFill.withValues(alpha: 0.5),
+            ),
+            segments: const [
+              ButtonSegment(
+                value: AppThemeMode.system,
+                label: Text('跟随系统'),
+                icon: Icon(Icons.brightness_auto_outlined, size: 18),
+              ),
+              ButtonSegment(
+                value: AppThemeMode.light,
+                label: Text('浅色'),
+                icon: Icon(Icons.light_mode_outlined, size: 18),
+              ),
+              ButtonSegment(
+                value: AppThemeMode.dark,
+                label: Text('深色'),
+                icon: Icon(Icons.dark_mode_outlined, size: 18),
+              ),
+            ],
+            selected: {controller.themeMode},
+            onSelectionChanged: (selection) =>
+                controller.setThemeMode(selection.first),
           ),
         ],
       ),
@@ -352,12 +438,19 @@ class _SystemShareRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Material(
+    final t = context.tokens;
+    return Material(
       color: Colors.transparent,
       child: ExpansionTile(
-        leading: Icon(Icons.ios_share, color: _accent),
-        title: Text('系统分享入口'),
-        subtitle: Text('iOS 与 Android 分享面板'),
+        leading: Icon(Icons.ios_share, color: t.accent),
+        title: Text(
+          '系统分享入口',
+          style: TextStyle(color: t.ink),
+        ),
+        subtitle: Text(
+          'iOS 与 Android 分享面板',
+          style: TextStyle(color: t.mutedInk),
+        ),
         childrenPadding: EdgeInsets.fromLTRB(16, 0, 16, 16),
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
         children: [

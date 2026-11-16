@@ -149,7 +149,7 @@ PlatformStyle platformStyle(String platform) {
     ),
     _ => PlatformStyle(
       icon: Icons.link,
-      color: _accent,
+      color: const Color(0xFF0062FF),
       softColor: const Color(0xFFEEF3F5),
       label: platform,
     ),

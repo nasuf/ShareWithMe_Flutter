@@ -25,9 +25,9 @@ class OriginalContentView extends StatelessWidget {
             const SizedBox(width: 10),
             Text(
               '正在加载原文…',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: _mutedInk),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: context.tokens.mutedInk,
+              ),
             ),
           ],
         ),
@@ -153,7 +153,7 @@ class SourceSnapshotView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final extraction = item.extraction;
-    final status = _extractionStatusStyle(extraction.status);
+    final status = _extractionStatusStyle(extraction.status, context.tokens);
     final fetchedAt = extraction.fetchedAt;
     final facts = item.sourceFacts
         .where((fact) => fact.key != 'content_kind')
@@ -215,6 +215,7 @@ class _ContentBlockView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = context.tokens;
     switch (block.kind) {
       case 'heading':
         final level = block.level ?? 2;
@@ -229,7 +230,7 @@ class _ContentBlockView extends StatelessWidget {
       case 'quote':
         return DecoratedBox(
           decoration: BoxDecoration(
-            border: Border(left: BorderSide(color: _mint, width: 3)),
+            border: Border(left: BorderSide(color: t.mint, width: 3)),
           ),
           child: Padding(
             padding: const EdgeInsets.only(left: 14),
@@ -250,8 +251,8 @@ class _ContentBlockView extends StatelessWidget {
               width: 6,
               height: 6,
               margin: const EdgeInsets.only(top: 8, right: 10),
-              decoration: const BoxDecoration(
-                color: _ink,
+              decoration: BoxDecoration(
+                color: t.ink,
                 shape: BoxShape.circle,
               ),
             ),
@@ -297,7 +298,7 @@ class _ContentBlockView extends StatelessWidget {
           block.text,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: _mutedInk,
+            color: t.mutedInk,
             height: 1.45,
           ),
         );
@@ -329,8 +330,9 @@ class _LinkBlockTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = context.tokens;
     return Material(
-      color: _mint.withValues(alpha: 0.10),
+      color: t.mint.withValues(alpha: 0.10),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -339,20 +341,20 @@ class _LinkBlockTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              Icon(Icons.link_rounded, size: 18, color: _mint),
+              Icon(Icons.link_rounded, size: 18, color: t.mint),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   text,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     height: 1.45,
-                    color: _ink,
+                    color: t.ink,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.open_in_new_rounded, size: 15, color: _mutedInk),
+              Icon(Icons.open_in_new_rounded, size: 15, color: t.mutedInk),
             ],
           ),
         ),
@@ -417,20 +419,13 @@ class _FactRow extends StatelessWidget {
 
 ({String label, IconData icon, Color color}) _extractionStatusStyle(
   String status,
+  AppTokens t,
 ) {
   return switch (status) {
-    'complete' => (
-      label: '正文已完整保存',
-      icon: Icons.verified_outlined,
-      color: _mint,
-    ),
-    'partial' => (label: '已保存部分公开内容', icon: Icons.adjust, color: _mutedInk),
-    'blocked' => (
-      label: '平台限制访问',
-      icon: Icons.lock_outline,
-      color: Color(0xFFE35B52),
-    ),
-    'stale' => (label: '保留上次完整正文', icon: Icons.history, color: _mutedInk),
-    _ => (label: '等待首次内容刷新', icon: Icons.sync, color: _mutedInk),
+    'complete' => (label: '正文已完整保存', icon: Icons.verified_outlined, color: t.mint),
+    'partial' => (label: '已保存部分公开内容', icon: Icons.adjust, color: t.mutedInk),
+    'blocked' => (label: '平台限制访问', icon: Icons.lock_outline, color: const Color(0xFFE35B52)),
+    'stale' => (label: '保留上次完整正文', icon: Icons.history, color: t.mutedInk),
+    _ => (label: '等待首次内容刷新', icon: Icons.sync, color: t.mutedInk),
   };
 }

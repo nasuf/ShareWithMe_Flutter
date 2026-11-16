@@ -9,7 +9,7 @@ Future<void> showAddLinkSheet(
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
-    barrierColor: _ink.withValues(alpha: 0.16),
+    barrierColor: context.tokens.ink.withValues(alpha: 0.16),
     builder: (_) => _AddLinkSheet(controller: controller),
   );
 }
@@ -89,7 +89,7 @@ class _AddLinkSheetState extends State<_AddLinkSheet> {
                             '收集链接',
                             style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(
-                                  color: _ink,
+                                  color: context.tokens.ink,
                                   fontWeight: FontWeight.w900,
                                 ),
                           ),

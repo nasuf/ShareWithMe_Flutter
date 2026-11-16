@@ -72,10 +72,12 @@ class _LibraryRowState extends State<LibraryRow> {
         label: '${style.label}，${item.title}',
         excludeSemantics: true,
         child: Material(
-          color: Colors.white.withValues(alpha: 0.66),
+          color: context.tokens.glassFill.withValues(
+            alpha: context.tokens.glassFillAlpha,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: shape,
-            side: BorderSide(color: _glassRim, width: 0.6),
+            side: BorderSide(color: context.tokens.glassRim, width: 0.6),
           ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -103,8 +105,8 @@ class _LibraryRowState extends State<LibraryRow> {
                               item.title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: _ink,
+                              style: TextStyle(
+                                color: context.tokens.ink,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
                                 height: 1.32,
@@ -113,19 +115,20 @@ class _LibraryRowState extends State<LibraryRow> {
                             ),
                             const SizedBox(height: 4),
                             if (item.analysisPending)
-                              const Row(
+                              Row(
                                 children: [
                                   SizedBox.square(
                                     dimension: 10,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 1.5,
+                                      color: context.tokens.accent,
                                     ),
                                   ),
-                                  SizedBox(width: 6),
+                                  const SizedBox(width: 6),
                                   Text(
                                     'AI 分析中…',
                                     style: TextStyle(
-                                      color: _mutedInk,
+                                      color: context.tokens.mutedInk,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -145,8 +148,8 @@ class _LibraryRowState extends State<LibraryRow> {
                                       meta,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: _mutedInk,
+                                      style: TextStyle(
+                                        color: context.tokens.mutedInk,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -165,17 +168,21 @@ class _LibraryRowState extends State<LibraryRow> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right_rounded,
                         size: 20,
-                        color: Color(0xFF9AA39E),
+                        color: context.tokens.mutedInk.withValues(alpha: 0.7),
                       ),
                     ],
                   ),
                   if (!widget.last)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 68, top: 10),
-                      child: Divider(height: 0.5, thickness: 0.5, color: _line),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 68, top: 10),
+                      child: Divider(
+                        height: 0.5,
+                        thickness: 0.5,
+                        color: context.tokens.line,
+                      ),
                     ),
                 ],
               ),
@@ -249,7 +256,7 @@ Future<void> _showItemActions(
   final action = await showModalBottomSheet<String>(
     context: context,
     backgroundColor: Colors.transparent,
-    barrierColor: _ink.withValues(alpha: 0.18),
+    barrierColor: context.tokens.ink.withValues(alpha: 0.18),
     builder: (sheetContext) => SafeArea(
       minimum: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: LiquidGlass(
@@ -267,7 +274,10 @@ Future<void> _showItemActions(
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: _mutedInk, fontSize: 13),
+                style: TextStyle(
+                  color: sheetContext.tokens.mutedInk,
+                  fontSize: 13,
+                ),
               ),
             ),
             for (final option in [
@@ -285,8 +295,11 @@ Future<void> _showItemActions(
               ('reanalyze', Icons.auto_awesome_outlined, '重新生成 AI 分析'),
             ])
               ListTile(
-                leading: Icon(option.$2, color: _ink),
-                title: Text(option.$3, style: const TextStyle(color: _ink)),
+                leading: Icon(option.$2, color: sheetContext.tokens.ink),
+                title: Text(
+                  option.$3,
+                  style: TextStyle(color: sheetContext.tokens.ink),
+                ),
                 onTap: () => Navigator.of(sheetContext).pop(option.$1),
               ),
           ],

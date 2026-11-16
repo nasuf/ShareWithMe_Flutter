@@ -22,7 +22,10 @@ class _LibraryFilterSheet extends StatelessWidget {
                     child: Text(
                       '筛选资料',
                       style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(color: _ink, fontWeight: FontWeight.w900),
+                          ?.copyWith(
+                            color: context.tokens.ink,
+                            fontWeight: FontWeight.w900,
+                          ),
                     ),
                   ),
                   TextButton(
@@ -60,10 +63,10 @@ class _LibraryFilterSheet extends StatelessWidget {
                     ChoiceChip(
                       selected: controller.statusFilter == value.$1,
                       showCheckmark: false,
-                      avatar: Icon(value.$3, size: 17, color: _accent),
+                      avatar: Icon(value.$3, size: 17, color: context.tokens.accent),
                       label: Text(value.$2),
-                      labelStyle: const TextStyle(
-                        color: _ink,
+                      labelStyle: TextStyle(
+                        color: context.tokens.ink,
                         fontWeight: FontWeight.w700,
                       ),
                       onSelected: (_) => controller.setStatusFilter(value.$1),
@@ -85,10 +88,10 @@ class _LibraryFilterSheet extends StatelessWidget {
                     ChoiceChip(
                       selected: controller.sortMode == value.$1,
                       showCheckmark: false,
-                      avatar: Icon(value.$3, size: 17, color: _accent),
+                      avatar: Icon(value.$3, size: 17, color: context.tokens.accent),
                       label: Text(value.$2),
-                      labelStyle: const TextStyle(
-                        color: _ink,
+                      labelStyle: TextStyle(
+                        color: context.tokens.ink,
                         fontWeight: FontWeight.w700,
                       ),
                       onSelected: (_) => controller.setSortMode(value.$1),
@@ -108,8 +111,8 @@ class _LibraryFilterSheet extends StatelessWidget {
                         selected: controller.category == bucket.label,
                         label: Text('${bucket.label} ${bucket.count}'),
                         showCheckmark: false,
-                        labelStyle: const TextStyle(
-                          color: _ink,
+                        labelStyle: TextStyle(
+                          color: context.tokens.ink,
                           fontWeight: FontWeight.w700,
                         ),
                         onSelected: (_) => controller.setCategory(bucket.label),
@@ -135,8 +138,8 @@ class _LibraryFilterSheet extends StatelessWidget {
                         ),
                         label: Text('${bucket.label} ${bucket.count}'),
                         showCheckmark: false,
-                        labelStyle: const TextStyle(
-                          color: _ink,
+                        labelStyle: TextStyle(
+                          color: context.tokens.ink,
                           fontWeight: FontWeight.w700,
                         ),
                         onSelected: (_) => controller.setPlatform(bucket.label),
@@ -170,7 +173,7 @@ class _FilterHeading extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-        color: _ink,
+        color: context.tokens.ink,
         fontWeight: FontWeight.w800,
       ),
     );

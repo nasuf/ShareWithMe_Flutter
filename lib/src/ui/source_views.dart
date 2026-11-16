@@ -107,9 +107,9 @@ class _SourceWebPageState extends State<SourceWebPage> {
     final item = ShareScope.of(context).itemById(widget.itemId);
     final controller = webController;
     return Scaffold(
-      backgroundColor: _surface,
+      backgroundColor: context.tokens.surface,
       appBar: AppBar(
-        backgroundColor: _surface,
+        backgroundColor: context.tokens.surface,
         title: Text(
           sourceUri?.host ?? '原网页',
           style: Theme.of(context).textTheme.titleSmall,
@@ -145,7 +145,7 @@ class _SourceWebPageState extends State<SourceWebPage> {
           if (loadError != null)
             Positioned.fill(
               child: ColoredBox(
-                color: _surface,
+                color: context.tokens.surface,
                 child: _SourceUnavailable(
                   message: loadError!,
                   hasArchive: item?.archive != null,
@@ -189,14 +189,14 @@ class _SourceUnavailable extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.link_off_rounded, size: 40, color: _mutedInk),
+            Icon(Icons.link_off_rounded, size: 40, color: context.tokens.mutedInk),
             const SizedBox(height: 12),
             Text('原网页暂时无法打开', style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
             Text(
               hasArchive ? '可以查看保存时的存档快照。' : message,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(color: _mutedInk),
+              style: theme.textTheme.bodySmall?.copyWith(color: context.tokens.mutedInk),
             ),
             const SizedBox(height: 18),
             Wrap(
@@ -262,9 +262,9 @@ class _ArchiveSnapshotPageState extends State<ArchiveSnapshotPage> {
         final item = controller.itemById(widget.itemId);
         final archive = item?.archive;
         return Scaffold(
-          backgroundColor: _surface,
+          backgroundColor: context.tokens.surface,
           appBar: AppBar(
-            backgroundColor: _surface,
+            backgroundColor: context.tokens.surface,
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -274,7 +274,7 @@ class _ArchiveSnapshotPageState extends State<ArchiveSnapshotPage> {
                     '保存于 ${DateFormat('yyyy-MM-dd HH:mm').format(archive.capturedAt)}',
                     style: Theme.of(
                       context,
-                    ).textTheme.bodySmall?.copyWith(color: _mutedInk),
+                    ).textTheme.bodySmall?.copyWith(color: context.tokens.mutedInk),
                   ),
               ],
             ),
@@ -383,10 +383,10 @@ class _EmptyArchive extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.photo_library_outlined,
               size: 40,
-              color: _mutedInk,
+              color: context.tokens.mutedInk,
             ),
             const SizedBox(height: 12),
             Text('还没有存档快照', style: theme.textTheme.titleMedium),
@@ -395,7 +395,7 @@ class _EmptyArchive extends StatelessWidget {
               '存档会在收藏后自动生成，保留原文当时的排版。\n也可以现在从原网页生成一份（约需 20 秒）。',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: _mutedInk,
+                color: context.tokens.mutedInk,
                 height: 1.5,
               ),
             ),

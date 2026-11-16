@@ -41,7 +41,7 @@ class _InboxPageState extends State<InboxPage> {
         if (item.id != featured?.id) item,
     ];
     return RefreshIndicator(
-      color: _accent,
+      color: context.tokens.accent,
       onRefresh: controller.refresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(
@@ -123,7 +123,7 @@ class _InboxPageState extends State<InboxPage> {
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: _ink.withValues(alpha: 0.16),
+      barrierColor: context.tokens.ink.withValues(alpha: 0.16),
       isScrollControlled: true,
       useSafeArea: true,
       enableDrag: false,
@@ -225,6 +225,7 @@ class _LibrarySearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return SizedBox(
       height: 48,
       child: LiquidGlass(
@@ -234,7 +235,7 @@ class _LibrarySearchField extends StatelessWidget {
         padding: const EdgeInsets.only(left: 14, right: 4),
         child: Row(
           children: [
-            const Icon(Icons.search_rounded, size: 20, color: _mutedInk),
+            Icon(Icons.search_rounded, size: 20, color: t.mutedInk),
             const SizedBox(width: 8),
             Expanded(
               child: TextField(
@@ -243,10 +244,10 @@ class _LibrarySearchField extends StatelessWidget {
                 autofocus: controller.searchOpen && controller.query.isEmpty,
                 textInputAction: TextInputAction.search,
                 onChanged: controller.setQuery,
-                style: const TextStyle(color: _ink, fontSize: 16),
-                decoration: const InputDecoration(
+                style: TextStyle(color: t.ink, fontSize: 16),
+                decoration: InputDecoration(
                   hintText: '搜索标题、摘要、关键词',
-                  hintStyle: TextStyle(color: _mutedInk, fontSize: 16),
+                  hintStyle: TextStyle(color: t.mutedInk, fontSize: 16),
                   filled: false,
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -262,7 +263,7 @@ class _LibrarySearchField extends StatelessWidget {
                 focusNode.unfocus();
                 controller.closeSearch();
               },
-              icon: const Icon(Icons.close_rounded, size: 20, color: _mutedInk),
+              icon: Icon(Icons.close_rounded, size: 20, color: t.mutedInk),
             ),
           ],
         ),
@@ -280,6 +281,7 @@ class _FeaturedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = platformStyle(item.platform);
+    final t = context.tokens;
     final byline = [
       style.label,
       if (item.category.trim().isNotEmpty) item.category.trim(),
@@ -297,7 +299,7 @@ class _FeaturedCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
-                color: _glassShadow.withValues(alpha: 0.28),
+                color: t.glassShadow.withValues(alpha: 0.28),
                 blurRadius: 40,
                 spreadRadius: -14,
                 offset: const Offset(0, 18),
@@ -537,17 +539,14 @@ class _FolderChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = selected ? Colors.white : const Color(0xFF1B211E);
+    final t = context.tokens;
+    final foreground = selected ? Colors.white : t.ink;
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           label,
-          style: TextStyle(
-            color: foreground,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: foreground, fontSize: 14, fontWeight: FontWeight.w600),
         ),
         if (count != null) ...[
           const SizedBox(width: 6),
@@ -573,7 +572,7 @@ class _FolderChip extends StatelessWidget {
         selected: selected,
         child: selected
             ? Material(
-                color: _ink,
+                color: t.ink,
                 borderRadius: BorderRadius.circular(18),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(18),

@@ -79,7 +79,7 @@ class _DetailTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final glyph = onImage ? Colors.white : _ink;
+    final glyph = onImage ? Colors.white : context.tokens.ink;
     return Row(
       children: [
         GlassCircleButton(
@@ -190,6 +190,7 @@ class _DetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final entities = _visibleEntities(item);
     return Stack(
       children: [
@@ -200,8 +201,6 @@ class _DetailSheet extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: 8 * (1 - value)),
               child: glass,
             ),
-            // The sheet can be thousands of pixels tall; a live backdrop blur
-            // over it was re-rendered every frame of scrolling and transitions.
             child: const LiquidGlass(
               radius: 36,
               blur: 0,
@@ -220,7 +219,7 @@ class _DetailSheet extends StatelessWidget {
                   width: 36,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: _ink.withValues(alpha: 0.16),
+                    color: t.ink.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -230,8 +229,8 @@ class _DetailSheet extends StatelessWidget {
               const SizedBox(height: 12),
               SelectableText(
                 item.title,
-                style: const TextStyle(
-                  color: _ink,
+                style: TextStyle(
+                  color: t.ink,
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
                   height: 1.3,
@@ -270,7 +269,7 @@ class _DetailSheet extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   item.notes,
-                  style: const TextStyle(color: _mutedInk, height: 1.5),
+                  style: TextStyle(color: t.mutedInk, height: 1.5),
                 ),
               ],
               const SizedBox(height: 28),
@@ -294,6 +293,7 @@ class _DetailByline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final style = platformStyle(item.platform);
     final author = (item.author ?? '').trim();
     final date = item.publishedAt ?? item.createdAt;
@@ -334,16 +334,13 @@ class _DetailByline extends StatelessWidget {
                 author.isEmpty ? style.label : author,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _ink,
+                style: TextStyle(
+                  color: t.ink,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              Text(
-                meta,
-                style: const TextStyle(color: _mutedInk, fontSize: 12),
-              ),
+              Text(meta, style: TextStyle(color: t.mutedInk, fontSize: 12)),
             ],
           ),
         ),
@@ -352,15 +349,15 @@ class _DetailByline extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 120),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: _accent.withValues(alpha: 0.1),
+              color: t.accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               item.category,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF0A4FA8),
+              style: TextStyle(
+                color: t.accent,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
@@ -378,25 +375,26 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
       decoration: BoxDecoration(
-        color: _accent.withValues(alpha: 0.07),
+        color: t.accent.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _accent.withValues(alpha: 0.12)),
+        border: Border.all(color: t.accent.withValues(alpha: 0.12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.auto_awesome_rounded, size: 15, color: _accent),
-              SizedBox(width: 6),
+              Icon(Icons.auto_awesome_rounded, size: 15, color: t.accent),
+              const SizedBox(width: 6),
               Text(
                 'AI 摘要',
                 style: TextStyle(
-                  color: _accent,
+                  color: t.accent,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -405,9 +403,9 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           if (item.analysisPending)
-            const Text(
+            Text(
               'AI 分析中…',
-              style: TextStyle(color: _mutedInk, fontSize: 14),
+              style: TextStyle(color: t.mutedInk, fontSize: 14),
             )
           else
             SelectableText(
@@ -432,13 +430,14 @@ class _DetailTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Container(
       constraints: const BoxConstraints(maxWidth: 200),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: entity
-            ? _ink.withValues(alpha: 0.05)
-            : _accent.withValues(alpha: 0.09),
+            ? t.ink.withValues(alpha: 0.05)
+            : t.accent.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
@@ -446,7 +445,7 @@ class _DetailTag extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: entity ? const Color(0xFF26302B) : const Color(0xFF0A4FA8),
+          color: entity ? t.mutedInk : t.accent,
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
@@ -462,6 +461,7 @@ class _DetailTagButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Semantics(
       button: true,
       label: '编辑关键词',
@@ -473,10 +473,10 @@ class _DetailTagButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(Icons.edit_outlined, size: 13, color: _mutedInk),
-              SizedBox(width: 3),
-              Text('编辑', style: TextStyle(color: _mutedInk, fontSize: 12)),
+            children: [
+              Icon(Icons.edit_outlined, size: 13, color: t.mutedInk),
+              const SizedBox(width: 3),
+              Text('编辑', style: TextStyle(color: t.mutedInk, fontSize: 12)),
             ],
           ),
         ),
@@ -495,47 +495,38 @@ class _SourceLinks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = item.finalUrl.trim().isNotEmpty
-        ? item.finalUrl
-        : item.sourceUrl;
+    final t = context.tokens;
+    final url = item.finalUrl.trim().isNotEmpty ? item.finalUrl : item.sourceUrl;
     final host = Uri.tryParse(url)?.host ?? '';
     final archive = item.archive;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.7),
+        color: t.glassFill.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _line, width: 0.6),
+        border: Border.all(color: t.line, width: 0.6),
       ),
       child: Column(
         children: [
           _SourceLinkRow(
-            leading: PlatformBrandMark(
-              platform: item.platform,
-              size: 30,
-              flat: true,
-            ),
+            leading: PlatformBrandMark(platform: item.platform, size: 30, flat: true),
             title: '原网页',
             subtitle: host.isEmpty ? platformStyle(item.platform).label : host,
             trailing: Icons.north_east_rounded,
             onTap: () => openSourceWebPage(context, item),
           ),
-          const Padding(
-            padding: EdgeInsets.only(left: 56),
-            child: Divider(height: 1, thickness: 0.6, color: _line),
+          Padding(
+            padding: const EdgeInsets.only(left: 56),
+            child: Divider(height: 1, thickness: 0.6, color: t.line),
           ),
           _SourceLinkRow(
             leading: Container(
               width: 30,
               height: 30,
               decoration: BoxDecoration(
-                color: _accentSoft,
+                color: t.accentSoft,
                 borderRadius: BorderRadius.circular(8.4),
               ),
-              child: const Icon(
-                Icons.photo_library_outlined,
-                size: 18,
-                color: _accent,
-              ),
+              child: Icon(Icons.photo_library_outlined, size: 18, color: t.accent),
             ),
             title: '存档快照',
             subtitle: archive == null
@@ -567,6 +558,7 @@ class _SourceLinkRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Semantics(
       button: true,
       label: '$title，$subtitle',
@@ -586,8 +578,8 @@ class _SourceLinkRow extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: _ink,
+                      style: TextStyle(
+                        color: t.ink,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
@@ -597,13 +589,13 @@ class _SourceLinkRow extends StatelessWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: _mutedInk, fontSize: 12.5),
+                      style: TextStyle(color: t.mutedInk, fontSize: 12.5),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(trailing, size: 20, color: _mutedInk),
+              Icon(trailing, size: 20, color: t.mutedInk),
             ],
           ),
         ),
@@ -621,8 +613,8 @@ class _SheetHeading extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: const TextStyle(
-        color: _ink,
+      style: TextStyle(
+        color: context.tokens.ink,
         fontSize: 16,
         fontWeight: FontWeight.w700,
       ),
@@ -638,6 +630,7 @@ class _DetailActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final favorite = item.status == 'favorite';
     return SizedBox(
       height: 56,
@@ -652,7 +645,7 @@ class _DetailActionBar extends StatelessWidget {
             IconButton(
               tooltip: '编辑收藏夹与关键词',
               onPressed: () => showEditItemSheet(context, controller, item),
-              icon: const Icon(Icons.edit_outlined, color: Color(0xFF26302B)),
+              icon: Icon(Icons.edit_outlined, color: t.mutedInk),
             ),
             IconButton(
               tooltip: favorite ? '取消重要' : '标为重要',
@@ -662,9 +655,7 @@ class _DetailActionBar extends StatelessWidget {
               ),
               icon: Icon(
                 favorite ? Icons.star_rounded : Icons.star_outline_rounded,
-                color: favorite
-                    ? const Color(0xFFE0A100)
-                    : const Color(0xFF26302B),
+                color: favorite ? const Color(0xFFE0A100) : t.mutedInk,
               ),
             ),
             const SizedBox(width: 4),
@@ -674,10 +665,7 @@ class _DetailActionBar extends StatelessWidget {
                 minimumSize: const Size(0, 46),
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 shape: const StadiumBorder(),
-                textStyle: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
+                textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
               iconAlignment: IconAlignment.end,
               icon: const Icon(Icons.north_east_rounded, size: 17),

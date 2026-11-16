@@ -18,7 +18,7 @@ class HomeShell extends StatelessWidget {
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 900;
             return Scaffold(
-              backgroundColor: _surface,
+              backgroundColor: context.tokens.surface,
               body: GlassBackground(
                 imageUrls: _backdropUrls(controller),
                 child: Stack(
@@ -290,7 +290,7 @@ class _GlassTabBarState extends State<_GlassTabBar>
                         borderRadius: BorderRadius.circular(pillHeight / 2),
                         boxShadow: [
                           BoxShadow(
-                            color: _glassShadow.withValues(alpha: 0.1),
+                            color: context.tokens.glassShadow.withValues(alpha: 0.1),
                             blurRadius: 10,
                             offset: const Offset(0, 2),
                           ),
@@ -358,7 +358,7 @@ class _GlassDroplet extends StatelessWidget {
             borderRadius: radius,
             boxShadow: [
               BoxShadow(
-                color: _glassShadow.withValues(alpha: 0.22 * fade),
+                color: context.tokens.glassShadow.withValues(alpha: 0.22 * fade),
                 blurRadius: 24,
                 spreadRadius: -6,
                 offset: const Offset(0, 10),
@@ -409,7 +409,8 @@ class _GlassTabLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? _accent : const Color(0xFF26302B);
+    final t = context.tokens;
+    final color = selected ? t.accent : t.mutedInk;
     return Semantics(
       selected: selected,
       button: true,
@@ -441,6 +442,7 @@ class _ReferenceRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 18, 0, 18),
       child: GlassPanel(
@@ -450,7 +452,7 @@ class _ReferenceRail extends StatelessWidget {
           width: 86,
           child: Column(
             children: [
-              const Icon(Icons.bookmarks_rounded, color: _accent, size: 30),
+              Icon(Icons.bookmarks_rounded, color: t.accent, size: 30),
               const SizedBox(height: 24),
               for (final destination in const [
                 (0, Icons.auto_stories_outlined, '资料库'),
@@ -468,7 +470,7 @@ class _ReferenceRail extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 11),
                       decoration: BoxDecoration(
                         color: controller.tabIndex == destination.$1
-                            ? Colors.white.withValues(alpha: 0.8)
+                            ? t.glassFill.withValues(alpha: 0.8)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -477,8 +479,8 @@ class _ReferenceRail extends StatelessWidget {
                           Icon(
                             destination.$2,
                             color: controller.tabIndex == destination.$1
-                                ? _accent
-                                : _mutedInk,
+                                ? t.accent
+                                : t.mutedInk,
                           ),
                           const SizedBox(height: 4),
                           Text(destination.$3),

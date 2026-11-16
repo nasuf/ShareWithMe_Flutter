@@ -3,6 +3,21 @@ part of '../../main.dart';
 class AppSettings {
   static const _backendUrlKey = 'backend_url';
   static const _lastClipboardImportKey = 'last_clipboard_import';
+  static const _themeModeKey = 'theme_mode';
+
+  Future<AppThemeMode> loadThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return switch (prefs.getString(_themeModeKey)) {
+      'light' => AppThemeMode.light,
+      'dark' => AppThemeMode.dark,
+      _ => AppThemeMode.system,
+    };
+  }
+
+  Future<void> saveThemeMode(AppThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeModeKey, mode.name);
+  }
 
   Future<String?> loadBackendUrl() async {
     final preferences = await SharedPreferences.getInstance();

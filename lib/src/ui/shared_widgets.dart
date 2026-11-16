@@ -1,14 +1,5 @@
 part of '../../main.dart';
 
-// Design D tokens: near-black ink, a 7:1 secondary grey and iOS system blue.
-const _ink = Color(0xFF0E1110);
-const _mutedInk = Color(0xFF4D5651);
-const _accent = Color(0xFF0A64D8);
-const _mint = Color(0xFF3D8AE8);
-const _accentSoft = Color(0xFFE3EDFB);
-const _line = Color(0x1F141E19);
-const _surface = Color(0xFFF2F5F3);
-
 class GlassBackground extends StatelessWidget {
   const GlassBackground({
     super.key,
@@ -74,6 +65,7 @@ class PageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 10, 2, 12),
       child: Row(
@@ -87,7 +79,7 @@ class PageHeader extends StatelessWidget {
                   Text(
                     eyebrow,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: _accent,
+                      color: t.accent,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -98,7 +90,7 @@ class PageHeader extends StatelessWidget {
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: _mutedInk,
+                    color: t.mutedInk,
                     fontSize: 15,
                     height: 1.42,
                   ),
@@ -118,30 +110,33 @@ class SoftTag extends StatelessWidget {
     super.key,
     required this.label,
     this.icon,
-    this.color = _accent,
+    this.color,
     this.onDeleted,
   });
 
   final String label;
   final IconData? icon;
-  final Color color;
+  // null → falls back to context.tokens.accent at build time
+  final Color? color;
   final VoidCallback? onDeleted;
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
+    final effectiveColor = color ?? t.accent;
     return Container(
       constraints: const BoxConstraints(maxWidth: 190),
       padding: EdgeInsets.fromLTRB(icon == null ? 12 : 10, 7, 11, 7),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
+        color: effectiveColor.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.82)),
+        border: Border.all(color: t.glassRim.withValues(alpha: 0.82)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 13, color: color),
+            Icon(icon, size: 13, color: effectiveColor),
             const SizedBox(width: 5),
           ],
           Flexible(
@@ -150,7 +145,7 @@ class SoftTag extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: _ink,
+                color: t.ink,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -159,7 +154,7 @@ class SoftTag extends StatelessWidget {
             const SizedBox(width: 5),
             GestureDetector(
               onTap: onDeleted,
-              child: Icon(Icons.close, size: 14, color: color),
+              child: Icon(Icons.close, size: 14, color: effectiveColor),
             ),
           ],
         ],
@@ -191,7 +186,7 @@ class GlassIconButton extends StatelessWidget {
       icon: icon,
       onPressed: onPressed,
       size: size,
-      foreground: active ? _accent : null,
+      foreground: active ? context.tokens.accent : null,
     );
   }
 }
@@ -201,26 +196,28 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 88, horizontal: 32),
       child: Column(
         children: [
-          const Icon(Icons.bookmarks_outlined, size: 42, color: _accent),
+          Icon(Icons.bookmarks_outlined, size: 42, color: t.accent),
           const SizedBox(height: 14),
           Text(
             '资料库还是空的',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _ink,
+              color: t.ink,
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            '从其他 App 分享链接，或点击底部“收集”。',
+            '从其他 App 分享链接，或点击底部”收集”。',
             textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: _mutedInk, height: 1.4),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: t.mutedInk,
+              height: 1.4,
+            ),
           ),
         ],
       ),
@@ -247,26 +244,25 @@ class _ServiceUnavailableBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = context.tokens.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 9, 6, 9),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7E8),
+        color: dark ? const Color(0xFF2A1F0A) : const Color(0xFFFFF7E8),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFF0DFC0)),
+        border: Border.all(
+          color: dark ? const Color(0xFF5A3E0F) : const Color(0xFFF0DFC0),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.cloud_off_outlined,
-            size: 19,
-            color: Color(0xFF956A22),
-          ),
+          const Icon(Icons.cloud_off_outlined, size: 19, color: Color(0xFFD4922A)),
           const SizedBox(width: 9),
-          const Expanded(
+          Expanded(
             child: Text(
               '资料服务暂时离线，正在显示上次加载的内容',
               style: TextStyle(
-                color: _ink,
+                color: context.tokens.ink,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -275,7 +271,7 @@ class _ServiceUnavailableBanner extends StatelessWidget {
           IconButton(
             tooltip: '重新连接',
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 19),
+            icon: Icon(Icons.refresh, size: 19, color: context.tokens.mutedInk),
           ),
         ],
       ),
@@ -290,6 +286,7 @@ class _ServiceUnavailableState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 72, horizontal: 28),
       child: Column(
@@ -297,17 +294,17 @@ class _ServiceUnavailableState extends StatelessWidget {
           Container(
             width: 52,
             height: 52,
-            decoration: const BoxDecoration(
-              color: Color(0xFFEFF3F7),
+            decoration: BoxDecoration(
+              color: t.accentSoft,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.cloud_off_outlined, color: _accent),
+            child: Icon(Icons.cloud_off_outlined, color: t.accent),
           ),
           const SizedBox(height: 16),
           Text(
             '暂时无法连接资料服务',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _ink,
+              color: t.ink,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -315,9 +312,10 @@ class _ServiceUnavailableState extends StatelessWidget {
           Text(
             '界面已经正常启动。请检查网络或服务器状态后重试。',
             textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: _mutedInk, height: 1.45),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: t.mutedInk,
+              height: 1.45,
+            ),
           ),
           const SizedBox(height: 18),
           OutlinedButton.icon(

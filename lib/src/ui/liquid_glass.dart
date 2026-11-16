@@ -1,13 +1,11 @@
 part of '../../main.dart';
 
-// Liquid glass surfaces (design D): a translucent fill that brightens toward
+// Liquid glass surfaces (design E): a translucent fill that brightens toward
 // the top-left, a hairline rim, a specular highlight along the top edge and a
-// soft drop shadow. Real-time blur is reserved for floating chrome (tab bar,
-// buttons, sheets); list rows use the same look without a backdrop filter so
+// soft drop shadow. Colors are read from AppTokens so both light and dark
+// themes get the right rim and shadow. Real-time blur is reserved for floating
+// chrome (tab bar, buttons, sheets); list rows skip the backdrop filter so
 // scrolling stays cheap.
-
-const _glassRim = Color(0xA6FFFFFF);
-const _glassShadow = Color(0xFF14281E);
 
 class LiquidGlass extends StatelessWidget {
   const LiquidGlass({
@@ -39,8 +37,10 @@ class LiquidGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final shape = borderRadius ?? BorderRadius.circular(radius);
-    final base = dark ? const Color(0xFF1C1F26) : Colors.white;
+    final base = dark ? t.glassFill : Colors.white;
+    final rim = dark ? Colors.white.withValues(alpha: 0.16) : t.glassRim;
     Widget surface = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: shape,
@@ -52,10 +52,7 @@ class LiquidGlass extends StatelessWidget {
             base.withValues(alpha: opacity * 0.6),
           ],
         ),
-        border: Border.all(
-          color: dark ? Colors.white.withValues(alpha: 0.16) : _glassRim,
-          width: 0.8,
-        ),
+        border: Border.all(color: rim, width: 0.8),
       ),
       child: Stack(
         children: [
@@ -101,12 +98,13 @@ class LiquidGlass extends StatelessWidget {
     if (!shadow) {
       return surface;
     }
+    final shadowColor = context.tokens.glassShadow;
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: shape,
         boxShadow: [
           BoxShadow(
-            color: _glassShadow.withValues(alpha: dark ? 0.4 : 0.13),
+            color: shadowColor.withValues(alpha: dark ? 0.4 : 0.13),
             blurRadius: 32,
             spreadRadius: -10,
             offset: const Offset(0, 14),
@@ -141,7 +139,8 @@ class GlassCircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = foreground ?? (onImage ? Colors.white : _ink);
+    final t = context.tokens;
+    final color = foreground ?? (onImage ? Colors.white : t.ink);
     return Tooltip(
       message: tooltip,
       child: Semantics(
@@ -186,16 +185,17 @@ class AmbientBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final urls = imageUrls.where((url) => url.isNotEmpty).take(9).toList();
     return Stack(
       fit: StackFit.expand,
       children: [
-        const DecoratedBox(
+        DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFFEFF3F1), Color(0xFFE8EDF2), Color(0xFFF3F1EE)],
+              colors: t.backdropGradient,
             ),
           ),
         ),
@@ -204,16 +204,10 @@ class AmbientBackdrop extends StatelessWidget {
             child: RepaintBoundary(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 600),
-                // The default layout gives children loose constraints, which
-                // would shrink the backdrop to the image's aspect ratio.
                 layoutBuilder: (current, previous) => Stack(
                   fit: StackFit.expand,
                   children: [...previous, ?current],
                 ),
-                // A single cover is decoded at ~32px and stretched: bilinear
-                // upscaling is the blur, so no filter runs per frame (a
-                // full-screen live blur stalled route transitions). The
-                // mosaic still needs a blur to melt the tile seams.
                 child: urls.length == 1
                     ? _BackdropImage(key: ValueKey(urls.first), url: urls.first)
                     : ImageFiltered(
@@ -230,7 +224,7 @@ class AmbientBackdrop extends StatelessWidget {
           ),
         Positioned.fill(
           child: ColoredBox(
-            color: const Color(0xFFF5F8F6).withValues(alpha: veil),
+            color: t.backdropVeil.withValues(alpha: veil * t.backdropVeilAlpha),
           ),
         ),
         child,
@@ -299,16 +293,18 @@ class FrostedStrip extends StatelessWidget {
     if (progress <= 0) {
       return const SizedBox.shrink();
     }
+    final t = context.tokens;
+    final dark = t.brightness == Brightness.dark;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 22 * progress, sigmaY: 22 * progress),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: _surface.withValues(alpha: 0.78 * progress),
+            color: t.surface.withValues(alpha: (dark ? 0.86 : 0.78) * progress),
             border: divider
                 ? Border(
                     bottom: BorderSide(
-                      color: _line.withValues(alpha: _line.a * progress),
+                      color: t.line.withValues(alpha: t.line.a * progress),
                       width: 0.5,
                     ),
                   )
@@ -326,22 +322,26 @@ String _chineseDateLabel(DateTime date) {
   return '${date.month}月${date.day}日 星期${weekdays[date.weekday - 1]}';
 }
 
-TextStyle _largeTitleStyle(BuildContext context) =>
-    Theme.of(context).textTheme.headlineMedium!.copyWith(
-      color: _ink,
-      fontSize: 34,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -0.8,
-      height: 1.1,
-    );
+TextStyle _largeTitleStyle(BuildContext context) {
+  final t = context.tokens;
+  return Theme.of(context).textTheme.headlineMedium!.copyWith(
+    color: t.ink,
+    fontSize: 34,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.8,
+    height: 1.1,
+  );
+}
 
-TextStyle _eyebrowStyle(BuildContext context) =>
-    Theme.of(context).textTheme.labelLarge!.copyWith(
-      color: _mutedInk,
-      fontSize: 13,
-      fontWeight: FontWeight.w600,
-      letterSpacing: 0.3,
-    );
+TextStyle _eyebrowStyle(BuildContext context) {
+  final t = context.tokens;
+  return Theme.of(context).textTheme.labelLarge!.copyWith(
+    color: t.mutedInk,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.3,
+  );
+}
 
 /// A frosted bottom-sheet body that drags as one piece.
 ///
@@ -430,6 +430,7 @@ class _GlassSheetState extends State<GlassSheet>
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Listener(
       onPointerDown: _onDown,
       onPointerMove: _onMove,
@@ -443,9 +444,9 @@ class _GlassSheetState extends State<GlassSheet>
             filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.82),
+                color: t.sheetFill.withValues(alpha: t.brightness == Brightness.dark ? 0.88 : 0.82),
                 border: Border(
-                  top: BorderSide(color: Colors.white.withValues(alpha: 0.96)),
+                  top: BorderSide(color: t.sheetBorder),
                 ),
               ),
               child: ScrollConfiguration(
@@ -454,8 +455,6 @@ class _GlassSheetState extends State<GlassSheet>
                 ).copyWith(overscroll: false),
                 child: SingleChildScrollView(
                   controller: scroll,
-                  // While the panel is being dragged the content must not
-                  // scroll as well, or the two would move apart.
                   physics: drag > 0
                       ? const NeverScrollableScrollPhysics()
                       : const ClampingScrollPhysics(),
@@ -469,7 +468,7 @@ class _GlassSheetState extends State<GlassSheet>
                           width: 38,
                           height: 5,
                           decoration: BoxDecoration(
-                            color: _ink.withValues(alpha: 0.16),
+                            color: t.ink.withValues(alpha: 0.16),
                             borderRadius: BorderRadius.circular(3),
                           ),
                         ),
@@ -528,7 +527,7 @@ Future<T?> showGlassMenu<T>({
     context: anchorContext,
     barrierDismissible: true,
     barrierLabel: '关闭菜单',
-    barrierColor: _ink.withValues(alpha: 0.06),
+    barrierColor: anchorContext.tokens.ink.withValues(alpha: 0.06),
     transitionDuration: const Duration(milliseconds: 240),
     pageBuilder: (context, _, _) => Stack(
       children: [
@@ -580,7 +579,7 @@ class _GlassMenu<T> extends StatelessWidget {
                   Container(
                     height: 7,
                     margin: const EdgeInsets.symmetric(vertical: 4),
-                    color: _ink.withValues(alpha: 0.05),
+                    color: context.tokens.ink.withValues(alpha: 0.05),
                   ),
                 _GlassMenuRow<T>(item: item),
               ],
@@ -599,7 +598,8 @@ class _GlassMenuRow<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = item.destructive ? const Color(0xFFE5484D) : _ink;
+    final t = context.tokens;
+    final color = item.destructive ? const Color(0xFFE5484D) : t.ink;
     return InkWell(
       onTap: () => Navigator.of(context).pop(item.value),
       child: Padding(

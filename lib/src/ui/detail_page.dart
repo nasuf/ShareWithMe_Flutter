@@ -108,7 +108,7 @@ class _DetailPageState extends State<DetailPage>
         final item = controller.itemById(widget.itemId);
         if (item == null) {
           return Scaffold(
-            backgroundColor: _surface,
+            backgroundColor: context.tokens.surface,
             body: GlassBackground(
               child: Center(
                 child: loadingMissingItem
@@ -151,7 +151,7 @@ class _DetailPageState extends State<DetailPage>
               );
             },
             child: Scaffold(
-              backgroundColor: _surface,
+              backgroundColor: context.tokens.surface,
               body: GlassBackground(
                 imageUrls: hasCover ? [coverUrl] : const [],
                 child: Stack(
@@ -250,7 +250,9 @@ class _DetailPageState extends State<DetailPage>
                     ),
                     ValueListenableBuilder<double>(
                       valueListenable: scrolledUnder,
-                      builder: (context, progress, _) => Stack(
+                      builder: (context, progress, _) {
+                        final surf = context.tokens.surface;
+                        return Stack(
                         children: [
                           Positioned(
                             left: 0,
@@ -266,9 +268,9 @@ class _DetailPageState extends State<DetailPage>
                                       begin: Alignment.topCenter,
                                       end: Alignment.bottomCenter,
                                       colors: [
-                                        _surface.withValues(alpha: 0.96),
-                                        _surface.withValues(alpha: 0.85),
-                                        _surface.withValues(alpha: 0),
+                                        surf.withValues(alpha: 0.96),
+                                        surf.withValues(alpha: 0.85),
+                                        surf.withValues(alpha: 0),
                                       ],
                                       stops: const [0, 0.7, 1],
                                     ),
@@ -288,7 +290,8 @@ class _DetailPageState extends State<DetailPage>
                             ),
                           ),
                         ],
-                      ),
+                        );
+                      },
                     ),
                     Positioned(
                       left: 0,

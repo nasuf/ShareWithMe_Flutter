@@ -18,7 +18,7 @@ Future<void> showEditItemSheet(
     useSafeArea: true,
     enableDrag: false,
     backgroundColor: Colors.transparent,
-    barrierColor: _ink.withValues(alpha: 0.16),
+    barrierColor: context.tokens.ink.withValues(alpha: 0.16),
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setSheetState) {

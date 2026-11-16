@@ -39,6 +39,14 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Cover behind every top-level tab, fixed once chosen for the session.
   String? backdropUrl;
+
+  AppThemeMode themeMode = AppThemeMode.system;
+
+  Future<void> setThemeMode(AppThemeMode mode) async {
+    themeMode = mode;
+    notifyListeners();
+    await settings.saveThemeMode(mode);
+  }
   String query = '';
   String category = '';
   String platform = '';
@@ -77,6 +85,7 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> restoreSettings() async {
+    themeMode = await settings.loadThemeMode();
     final savedBackendUrl = await settings.loadBackendUrl();
     if (savedBackendUrl != null) {
       try {
