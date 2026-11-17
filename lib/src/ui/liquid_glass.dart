@@ -228,7 +228,13 @@ class AmbientBackdrop extends StatelessWidget {
           ),
         Positioned.fill(
           child: ColoredBox(
-            color: t.backdropVeil.withValues(alpha: veil * t.backdropVeilAlpha),
+            // 深色模式下直接用 backdropVeilAlpha，不再乘以 veil，
+            // 否则 0.6 × 0.82 = 0.49 根本压不住彩色 blur 背景。
+            color: t.backdropVeil.withValues(
+              alpha: t.brightness == Brightness.dark
+                  ? t.backdropVeilAlpha
+                  : veil * t.backdropVeilAlpha,
+            ),
           ),
         ),
         child,
