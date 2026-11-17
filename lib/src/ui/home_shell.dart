@@ -19,76 +19,54 @@ class HomeShell extends StatelessWidget {
             final wide = constraints.maxWidth >= 900;
             return Scaffold(
               backgroundColor: context.tokens.surface,
-              body: GlassBackground(
-                imageUrls: _backdropUrls(controller),
-                child: Stack(
-                  children: [
-                    SafeArea(
-                      bottom: false,
-                      child: Row(
-                        children: [
-                          if (wide) _ReferenceRail(controller: controller),
-                          Expanded(
-                            // Switch instantly, like iOS tab bars, and keep
-                            // each tab's state. A cross-fade would draw the
-                            // page into a translucent layer, where its glass
-                            // can't see the backdrop and flashes dark.
-                            child: IndexedStack(
-                              index: controller.tabIndex,
-                              children: pages,
-                            ),
+              body: Stack(
+                children: [
+                  SafeArea(
+                    bottom: false,
+                    child: Row(
+                      children: [
+                        if (wide) _ReferenceRail(controller: controller),
+                        Expanded(
+                          child: IndexedStack(
+                            index: controller.tabIndex,
+                            children: pages,
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (controller.tabIndex == 0)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      height: MediaQuery.paddingOf(context).top,
+                      child: IgnorePointer(
+                        child: ValueListenableBuilder<double>(
+                          valueListenable: controller.libraryBarPinned,
+                          builder: (context, pinned, _) =>
+                              FrostedStrip(progress: pinned),
+                        ),
                       ),
                     ),
-                    // Frosts the status bar once the library's folder bar is
-                    // pinned under it, so they read as one bar.
-                    if (controller.tabIndex == 0)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        top: 0,
-                        height: MediaQuery.paddingOf(context).top,
-                        child: IgnorePointer(
-                          child: ValueListenableBuilder<double>(
-                            valueListenable: controller.libraryBarPinned,
-                            builder: (context, pinned, _) =>
-                                FrostedStrip(progress: pinned),
-                          ),
-                        ),
+                  if (!wide)
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 0,
+                      child: SafeArea(
+                        top: false,
+                        minimum: const EdgeInsets.only(bottom: 12),
+                        child: _GlassTabBar(controller: controller),
                       ),
-                    if (!wide)
-                      Positioned(
-                        left: 16,
-                        right: 16,
-                        bottom: 0,
-                        child: SafeArea(
-                          top: false,
-                          minimum: const EdgeInsets.only(bottom: 12),
-                          child: _GlassTabBar(controller: controller),
-                        ),
-                      ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             );
           },
         );
       },
     );
-  }
-
-  // One backdrop for every top-level tab, so switching tabs never changes
-  // the colour behind the glass.
-  List<String> _backdropUrls(ShareController controller) {
-    // Filtering reloads `items`, which would otherwise pick a new featured
-    // cover; keep the first one for the session so the backdrop stays put.
-    final featured = _featuredItem(controller);
-    controller.backdropUrl ??= featured == null
-        ? null
-        : _coverUrl(controller, featured);
-    final url = controller.backdropUrl;
-    return url == null ? const [] : [url];
   }
 }
 

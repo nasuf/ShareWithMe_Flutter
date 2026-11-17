@@ -332,11 +332,9 @@ void main() {
                   alignment: Alignment.topCenter,
                   child: SizedBox(
                     width: 360,
-                    child: LibraryRow(
+                    child: LibraryCard(
                       item: item,
                       controller: controller,
-                      first: true,
-                      last: true,
                     ),
                   ),
                 ),
@@ -347,7 +345,7 @@ void main() {
       ),
     );
 
-    await tester.longPress(find.byType(LibraryRow));
+    await tester.longPress(find.byType(LibraryCard));
     await tester.pumpAndSettle();
 
     for (final label in ['编辑收藏夹与关键词', '标为重要', '归档', '重新生成 AI 分析']) {
