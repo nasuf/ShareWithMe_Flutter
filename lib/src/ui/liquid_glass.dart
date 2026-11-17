@@ -39,8 +39,12 @@ class LiquidGlass extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.tokens;
     final shape = borderRadius ?? BorderRadius.circular(radius);
-    final base = dark ? t.glassFill : Colors.white;
-    final rim = dark ? Colors.white.withValues(alpha: 0.16) : t.glassRim;
+    // 深色模式：无论 dark 参数如何，主题深色时都使用 glassFill 而非纯白，
+    // 并将不透明度拉到 0.88+ 才能与深色背景拉开层次。
+    final isDark = dark || t.brightness == Brightness.dark;
+    final base = isDark ? t.glassFill : Colors.white;
+    final rim = isDark ? Colors.white.withValues(alpha: 0.22) : t.glassRim;
+    final effectiveOpacity = isDark ? opacity.clamp(0.82, 1.0) : opacity;
     Widget surface = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: shape,
@@ -48,8 +52,8 @@ class LiquidGlass extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            base.withValues(alpha: opacity),
-            base.withValues(alpha: opacity * 0.6),
+            base.withValues(alpha: effectiveOpacity),
+            base.withValues(alpha: effectiveOpacity * 0.75),
           ],
         ),
         border: Border.all(color: rim, width: 0.8),
@@ -69,7 +73,7 @@ class LiquidGlass extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: [
                       Colors.white.withValues(alpha: 0),
-                      Colors.white.withValues(alpha: dark ? 0.35 : 0.95),
+                      Colors.white.withValues(alpha: isDark ? 0.35 : 0.95),
                       Colors.white.withValues(alpha: 0),
                     ],
                   ),
@@ -104,7 +108,7 @@ class LiquidGlass extends StatelessWidget {
         borderRadius: shape,
         boxShadow: [
           BoxShadow(
-            color: shadowColor.withValues(alpha: dark ? 0.4 : 0.13),
+            color: shadowColor.withValues(alpha: isDark ? 0.4 : 0.13),
             blurRadius: 32,
             spreadRadius: -10,
             offset: const Offset(0, 14),
