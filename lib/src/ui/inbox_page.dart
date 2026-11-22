@@ -86,6 +86,28 @@ class _InboxPageState extends State<InboxPage> {
             pinned: true,
             delegate: _PinnedFolderBar(controller: controller),
           ),
+          SliverToBoxAdapter(
+            child: _ContentWidth(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SizedBox(
+                  height: 3,
+                  child: controller.loading && controller.items.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            minHeight: 3,
+                            color: context.tokens.accent,
+                            backgroundColor: context.tokens.accent.withValues(
+                              alpha: 0.12,
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+            ),
+          ),
           const SliverToBoxAdapter(child: SizedBox(height: 6)),
           if (controller.loading && controller.items.isEmpty)
             const SliverToBoxAdapter(

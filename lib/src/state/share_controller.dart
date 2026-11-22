@@ -191,8 +191,34 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
+  // Re-filters what the app has already seen so a filter tap changes the list
+  // at once; the server response that follows stays the source of truth.
+  void _applyLocalFilter() {
+    if (query.isNotEmpty || items.isEmpty) return;
+    final statuses = items.map((item) => item.status).toSet();
+    final pool = _itemCache.values
+        .where(
+          (item) =>
+              statuses.contains(item.status) &&
+              (category.isEmpty || item.category == category) &&
+              (platform.isEmpty || item.platform == platform),
+        )
+        .toList();
+    if (pool.isEmpty) return;
+    switch (sortMode) {
+      case 'oldest':
+        pool.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      case 'importance':
+        pool.sort((a, b) => b.importanceScore.compareTo(a.importanceScore));
+      default:
+        pool.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    items = pool;
+  }
+
   void setCategory(String value) {
     category = category == value ? '' : value;
+    _applyLocalFilter();
     notifyListeners();
     unawaited(refresh());
   }
@@ -213,6 +239,7 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
 
   void setPlatform(String value) {
     platform = platform == value ? '' : value;
+    _applyLocalFilter();
     notifyListeners();
     unawaited(refresh());
   }
@@ -227,6 +254,7 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
 
   void setSortMode(String value) {
     sortMode = value;
+    _applyLocalFilter();
     notifyListeners();
     unawaited(refresh());
   }
@@ -274,35 +302,52 @@ class ShareController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  // Bumped on every refresh so a slow, outdated response never overwrites the
+  // result of a newer filter tap.
+  int _refreshSeq = 0;
+
   Future<void> refresh() async {
+    final seq = ++_refreshSeq;
     loading = true;
     error = null;
     notifyListeners();
     unawaited(_refreshHealth());
     try {
-      final results = await Future.wait([
-        api.listItems(
-          query: query,
-          category: category,
-          platform: platform,
-          status: statusFilter,
-          sort: sortMode,
-        ),
+      final listRequest = api.listItems(
+        query: query,
+        category: category,
+        platform: platform,
+        status: statusFilter,
+        sort: sortMode,
+      );
+      final sideRequest = Future.wait([
         api.stats(status: statusFilter),
         api.digest(),
       ]);
-      items = results[0] as List<LinkItem>;
+      // Stats and digest must not hold up the list; swallow their errors here
+      // and surface them below only if the list itself succeeded.
+      unawaited(sideRequest.then<void>((_) {}, onError: (_) {}));
+      final fetched = await listRequest;
+      if (seq != _refreshSeq) return;
+      items = fetched;
       _rememberItems(items);
-      stats = results[1] as CollectionStats;
-      digest = results[2] as CollectionDigest;
+      loading = false;
+      notifyListeners();
       unawaited(_refreshStaleRemoteCovers());
       unawaited(_refreshStaleContent());
       _schedulePendingAnalysisPolls();
+      final side = await sideRequest;
+      if (seq != _refreshSeq) return;
+      stats = side[0] as CollectionStats;
+      digest = side[1] as CollectionDigest;
     } catch (exception) {
+      if (seq != _refreshSeq) return;
       error = exception.toString();
     } finally {
-      loading = false;
-      notifyListeners();
+      if (seq == _refreshSeq) {
+        loading = false;
+        notifyListeners();
+      }
     }
   }
 
