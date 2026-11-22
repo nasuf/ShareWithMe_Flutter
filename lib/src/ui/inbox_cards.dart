@@ -1,9 +1,5 @@
 part of '../../main.dart';
 
-// ─── 卡片类型分发 ────────────────────────────────────────────────────────────
-
-enum _CardType { video, article, social }
-
 bool _isVideoItem(LinkItem item) {
   final type = item.contentType.toLowerCase();
   return type.contains('video') ||
@@ -11,183 +7,23 @@ bool _isVideoItem(LinkItem item) {
       const {'哔哩哔哩', 'YouTube', '抖音', 'TikTok', '快手'}.contains(item.platform);
 }
 
-bool _isSocialItem(LinkItem item) =>
-    const {'小红书', '微博', 'Instagram', 'X', 'Twitter', '抖音'}.contains(
-      item.platform,
-    );
-
-_CardType _cardTypeFor(LinkItem item) {
-  if (_isVideoItem(item)) return _CardType.video;
-  if (_isSocialItem(item)) return _CardType.social;
-  return _CardType.article;
+/// 封面宽高比（宽/高）。优先用原图尺寸，否则按类型和 id 给出有差异的比例，
+/// 让两列卡片高低错落。
+double _coverAspect(LinkItem item) {
+  final img = item.media
+      .where((m) => m.kind == 'image' && (m.width ?? 0) > 0 && (m.height ?? 0) > 0)
+      .firstOrNull;
+  if (img != null) {
+    return (img.width! / img.height!).clamp(0.72, 1.4).toDouble();
+  }
+  if (_isVideoItem(item)) return 4 / 3;
+  const ratios = <double>[0.75, 0.85, 1.0, 0.8];
+  return ratios[item.id.hashCode.abs() % ratios.length];
 }
 
-// ─── 路由入口：根据内容类型分发到对应卡片 ─────────────────────────────────────
-
+/// 瀑布流中的统一卡片：封面按原比例，下方标题与来源。
 class LibraryCard extends StatelessWidget {
-  const LibraryCard({
-    super.key,
-    required this.item,
-    required this.controller,
-  });
-
-  final LinkItem item;
-  final ShareController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (_cardTypeFor(item)) {
-      _CardType.video => _VideoCard(item: item, controller: controller),
-      _CardType.article => _ArticleCard(item: item, controller: controller),
-      _CardType.social => _SocialCard(item: item, controller: controller),
-    };
-  }
-}
-
-// ─── 视频大图卡 ───────────────────────────────────────────────────────────────
-
-class _VideoCard extends StatelessWidget {
-  const _VideoCard({required this.item, required this.controller});
-
-  final LinkItem item;
-  final ShareController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final url = _coverUrl(controller, item);
-    final style = platformStyle(item.platform);
-    final meta = [
-      style.label,
-      if (item.category.trim().isNotEmpty) item.category.trim(),
-    ].join(' · ');
-
-    return GestureDetector(
-      onTap: () => _openDetail(context, controller, item),
-      onLongPress: () => _showItemActions(context, controller, item),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: url.isEmpty
-                  ? ColoredBox(
-                      color: style.softColor,
-                      child: Center(
-                        child: PlatformBrandMark(
-                          platform: item.platform,
-                          size: 48,
-                        ),
-                      ),
-                    )
-                  : Image.network(
-                      url,
-                      fit: BoxFit.cover,
-                      cacheWidth: 800,
-                      errorBuilder: (_, _, _) => ColoredBox(
-                        color: style.softColor,
-                        child: Center(
-                          child: PlatformBrandMark(
-                            platform: item.platform,
-                            size: 48,
-                          ),
-                        ),
-                      ),
-                    ),
-            ),
-            // 底部渐变遮罩 + 文字
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0x00000000), Color(0xCC000000)],
-                    stops: [0.0, 1.0],
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 24, 14, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          height: 1.3,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          PlatformBrandMark(
-                            platform: item.platform,
-                            size: 15,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              meta,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xCCFFFFFF),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          // 播放图标
-                          const Icon(
-                            Icons.play_circle_fill_rounded,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // 收藏星标
-            if (item.status == 'favorite')
-              Positioned(
-                top: 10,
-                right: 10,
-                child: Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: Colors.black38,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.star_rounded,
-                    size: 14,
-                    color: Color(0xFFE0A100),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── 文章宽行卡 ───────────────────────────────────────────────────────────────
-
-class _ArticleCard extends StatelessWidget {
-  const _ArticleCard({required this.item, required this.controller});
+  const LibraryCard({super.key, required this.item, required this.controller});
 
   final LinkItem item;
   final ShareController controller;
@@ -195,263 +31,127 @@ class _ArticleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final dark = t.brightness == Brightness.dark;
     final url = _coverUrl(controller, item);
     final style = platformStyle(item.platform);
     final hasCover = url.isNotEmpty;
-    final meta = [
-      style.label,
-      if (item.category.trim().isNotEmpty) item.category.trim(),
-    ].join(' · ');
-
-    return GestureDetector(
-      onTap: () => _openDetail(context, controller, item),
-      onLongPress: () => _showItemActions(context, controller, item),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: t.glassFill.withValues(alpha: t.glassFillAlpha),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: t.glassRim, width: 0.8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 来源行
-                    Row(
-                      children: [
-                        PlatformBrandMark(
-                          platform: item.platform,
-                          size: 15,
-                          flat: true,
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            meta,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: t.mutedInk,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        if (item.status == 'favorite') ...[
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 13,
-                            color: Color(0xFFE0A100),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // 标题
-                    Text(
-                      item.title,
-                      maxLines: hasCover ? 2 : 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: t.ink,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        height: 1.35,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    // 摘要（无封面时显示）
-                    if (!hasCover && item.summary.trim().isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        item.summary.trim(),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: t.mutedInk,
-                          fontSize: 13,
-                          height: 1.45,
-                        ),
-                      ),
-                    ],
-                    if (item.analysisPending) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          SizedBox.square(
-                            dimension: 10,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              color: t.accent,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'AI 分析中…',
-                            style: TextStyle(color: t.mutedInk, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (hasCover) ...[
-                const SizedBox(width: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(
-                    width: 88,
-                    height: 88,
-                    child: Image.network(
-                      url,
-                      fit: BoxFit.cover,
-                      cacheWidth: 300,
-                      errorBuilder: (_, _, _) => ColoredBox(
-                        color: style.softColor,
-                        child: Center(
-                          child: PlatformBrandMark(
-                            platform: item.platform,
-                            size: 28,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+    final video = _isVideoItem(item);
+    final fallback = ColoredBox(
+      color: dark ? style.color.withValues(alpha: 0.18) : style.softColor,
+      child: Center(child: PlatformBrandMark(platform: item.platform, size: 36)),
     );
-  }
-}
-
-// ─── 社交紧凑卡（半宽，两列并排）─────────────────────────────────────────────
-
-class _SocialCard extends StatelessWidget {
-  const _SocialCard({required this.item, required this.controller});
-
-  final LinkItem item;
-  final ShareController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tokens;
-    final url = _coverUrl(controller, item);
-    final style = platformStyle(item.platform);
-    final hasCover = url.isNotEmpty;
-
     return GestureDetector(
       onTap: () => _openDetail(context, controller, item),
       onLongPress: () => _showItemActions(context, controller, item),
-      child: DecoratedBox(
+      child: Container(
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: t.glassFill.withValues(alpha: t.glassFillAlpha),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: t.glassRim, width: 0.8),
+          color: t.glassFill,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: t.glassRim, width: 0.6),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 封面图（3:4 比例）
-            if (hasCover)
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(17),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 3 / 4,
-                  child: Image.network(
-                    url,
-                    fit: BoxFit.cover,
-                    cacheWidth: 400,
-                    errorBuilder: (_, _, _) => ColoredBox(
-                      color: style.softColor,
-                      child: Center(
-                        child: PlatformBrandMark(
-                          platform: item.platform,
-                          size: 32,
+            AspectRatio(
+              aspectRatio: hasCover ? _coverAspect(item) : 1.25,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (hasCover)
+                    Image.network(
+                      url,
+                      fit: BoxFit.cover,
+                      cacheWidth: 500,
+                      errorBuilder: (_, _, _) => fallback,
+                    )
+                  else
+                    fallback,
+                  if (video)
+                    const Positioned(
+                      right: 8,
+                      bottom: 8,
+                      child: Icon(
+                        Icons.play_circle_fill_rounded,
+                        color: Colors.white,
+                        size: 26,
+                        shadows: [Shadow(color: Color(0x66000000), blurRadius: 6)],
+                      ),
+                    ),
+                  if (item.status == 'favorite')
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.black45,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.star_rounded,
+                          size: 13,
+                          color: Color(0xFFFFC53D),
                         ),
                       ),
                     ),
-                  ),
-                ),
-              )
-            else
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(17),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 3 / 2,
-                  child: ColoredBox(
-                    color: style.softColor,
-                    child: Center(
-                      child: PlatformBrandMark(
-                        platform: item.platform,
-                        size: 36,
-                      ),
-                    ),
-                  ),
-                ),
+                ],
               ),
-            // 文字区域
+            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      PlatformBrandMark(
-                        platform: item.platform,
-                        size: 13,
-                        flat: true,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          style.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: t.mutedInk,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      if (item.status == 'favorite') ...[
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.star_rounded,
-                          size: 12,
-                          color: Color(0xFFE0A100),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 5),
                   Text(
                     item.title,
-                    maxLines: 3,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: t.ink,
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       height: 1.35,
                     ),
                   ),
+                  const SizedBox(height: 7),
+                  if (item.analysisPending)
+                    Row(
+                      children: [
+                        SizedBox.square(
+                          dimension: 10,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: t.accent,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'AI 分析中…',
+                          style: TextStyle(color: t.mutedInk, fontSize: 11.5),
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      children: [
+                        PlatformBrandMark(
+                          platform: item.platform,
+                          size: 14,
+                          flat: true,
+                        ),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            style.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: t.mutedInk, fontSize: 11.5),
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),

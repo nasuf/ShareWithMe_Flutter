@@ -104,7 +104,7 @@ class _InboxPageState extends State<InboxPage> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
               sliver: SliverToBoxAdapter(
                 child: _ContentWidth(
-                  child: _MixedCardLayout(
+                  child: _WaterfallLayout(
                     items: rows,
                     controller: controller,
                   ),
@@ -609,62 +609,41 @@ void _openDetail(
   );
 }
 
-// 混合布局：视频/文章全宽，社交卡片两列并排
-class _MixedCardLayout extends StatelessWidget {
-  const _MixedCardLayout({
-    required this.items,
-    required this.controller,
-  });
+// 小红书式两列瀑布流：每张卡放进当前较短的一列，封面比例不同，高低错落。
+class _WaterfallLayout extends StatelessWidget {
+  const _WaterfallLayout({required this.items, required this.controller});
 
   final List<LinkItem> items;
   final ShareController controller;
 
   @override
   Widget build(BuildContext context) {
-    final widgets = <Widget>[];
-    int i = 0;
-    while (i < items.length) {
-      final item = items[i];
-      final type = _cardTypeFor(item);
-      if (type == _CardType.social) {
-        // 收集连续的社交卡，每两个一行
-        final socialBatch = <LinkItem>[];
-        while (i < items.length && _cardTypeFor(items[i]) == _CardType.social) {
-          socialBatch.add(items[i]);
-          i++;
-        }
-        for (int j = 0; j < socialBatch.length; j += 2) {
-          final left = socialBatch[j];
-          final right = j + 1 < socialBatch.length ? socialBatch[j + 1] : null;
-          widgets.add(
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _SocialCard(item: left, controller: controller),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: right != null
-                      ? _SocialCard(item: right, controller: controller)
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            ),
-          );
-          widgets.add(const SizedBox(height: 10));
-        }
+    final left = <Widget>[];
+    final right = <Widget>[];
+    var leftHeight = 0.0;
+    var rightHeight = 0.0;
+    for (final item in items) {
+      final hasCover = _coverUrl(controller, item).isNotEmpty;
+      final h = (hasCover ? 1 / _coverAspect(item) : 0.8) + 0.5;
+      final card = Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: LibraryCard(item: item, controller: controller),
+      );
+      if (leftHeight <= rightHeight) {
+        left.add(card);
+        leftHeight += h;
       } else {
-        widgets.add(
-          LibraryCard(item: item, controller: controller),
-        );
-        widgets.add(const SizedBox(height: 10));
-        i++;
+        right.add(card);
+        rightHeight += h;
       }
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: widgets,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: Column(children: left)),
+        const SizedBox(width: 10),
+        Expanded(child: Column(children: right)),
+      ],
     );
   }
 }
