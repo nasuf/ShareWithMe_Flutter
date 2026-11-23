@@ -400,35 +400,258 @@ class _ThemeModeRow extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          SegmentedButton<AppThemeMode>(
-            style: SegmentedButton.styleFrom(
-              selectedBackgroundColor: t.accent,
-              selectedForegroundColor: Colors.white,
-              backgroundColor: t.glassFill.withValues(alpha: 0.5),
-            ),
-            segments: const [
-              ButtonSegment(
-                value: AppThemeMode.system,
-                label: Text('跟随系统'),
-                icon: Icon(Icons.brightness_auto_outlined, size: 18),
-              ),
-              ButtonSegment(
-                value: AppThemeMode.light,
-                label: Text('浅色'),
-                icon: Icon(Icons.light_mode_outlined, size: 18),
-              ),
-              ButtonSegment(
-                value: AppThemeMode.dark,
-                label: Text('深色'),
-                icon: Icon(Icons.dark_mode_outlined, size: 18),
-              ),
+          _GlassSegmented<AppThemeMode>(
+            options: const [
+              (AppThemeMode.system, Icons.brightness_auto_outlined, '跟随系统'),
+              (AppThemeMode.light, Icons.light_mode_outlined, '浅色'),
+              (AppThemeMode.dark, Icons.dark_mode_outlined, '深色'),
             ],
-            selected: {controller.themeMode},
-            onSelectionChanged: (selection) =>
-                controller.setThemeMode(selection.first),
+            value: controller.themeMode,
+            onChanged: controller.setThemeMode,
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Glass segmented control with the tab bar's behaviour: a soft pill rests
+/// under the selected option; pressing lifts it into a magnifying glass
+/// droplet that follows the finger across options and springs into place.
+class _GlassSegmented<T> extends StatefulWidget {
+  const _GlassSegmented({
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final List<(T, IconData, String)> options;
+  final T value;
+  final ValueChanged<T> onChanged;
+
+  @override
+  State<_GlassSegmented<T>> createState() => _GlassSegmentedState<T>();
+}
+
+class _GlassSegmentedState<T> extends State<_GlassSegmented<T>>
+    with TickerProviderStateMixin {
+  static const _height = 48.0;
+  static const _inset = 4.0;
+  static const _spring = SpringDescription(
+    mass: 1,
+    stiffness: 420,
+    damping: 30,
+  );
+
+  int get _index => widget.options
+      .indexWhere((option) => option.$1 == widget.value)
+      .clamp(0, widget.options.length - 1);
+
+  late final AnimationController position = AnimationController.unbounded(
+    vsync: this,
+    value: _index.toDouble(),
+  );
+  late final AnimationController lift = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+    reverseDuration: const Duration(milliseconds: 320),
+  );
+  bool interacting = false;
+  double slotWidth = 1;
+
+  @override
+  void dispose() {
+    position.dispose();
+    lift.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GlassSegmented<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!interacting && oldWidget.value != widget.value) {
+      _settleTo(_index.toDouble(), 0);
+    }
+  }
+
+  double _slotAt(double dx) => ((dx - _inset) / slotWidth - 0.5).clamp(
+    0.0,
+    widget.options.length - 1.0,
+  );
+
+  void _settleTo(double target, double velocity) {
+    position.animateWith(
+      SpringSimulation(_spring, position.value, target, velocity),
+    );
+  }
+
+  void _press(double dx) {
+    interacting = true;
+    position.stop();
+    lift.forward();
+    HapticFeedback.selectionClick();
+  }
+
+  void _drag(double dx) {
+    final slot = _slotAt(dx);
+    if (slot.round() != position.value.round()) {
+      HapticFeedback.selectionClick();
+    }
+    position.value = slot;
+  }
+
+  void _release({double? toSlot, double velocity = 0}) {
+    final target = (toSlot ?? position.value).round().clamp(
+      0,
+      widget.options.length - 1,
+    );
+    interacting = false;
+    _settleTo(target.toDouble(), velocity);
+    lift.reverse();
+    if (target != _index) {
+      widget.onChanged(widget.options[target].$1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _height,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          slotWidth =
+              (constraints.maxWidth - _inset * 2) / widget.options.length;
+          return Semantics(
+            container: true,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (d) => _press(d.localPosition.dx),
+              onTapUp: (d) => _release(toSlot: _slotAt(d.localPosition.dx)),
+              onTapCancel: () {
+                if (interacting) _release();
+              },
+              onHorizontalDragStart: (d) {
+                if (!interacting) _press(d.localPosition.dx);
+                _drag(d.localPosition.dx);
+              },
+              onHorizontalDragUpdate: (d) => _drag(d.localPosition.dx),
+              onHorizontalDragEnd: (d) => _release(
+                velocity: d.velocity.pixelsPerSecond.dx / slotWidth,
+              ),
+              onHorizontalDragCancel: () => _release(),
+              child: AnimatedBuilder(
+                animation: Listenable.merge([position, lift]),
+                builder: (context, _) => Transform.scale(
+                  scale: 1 - 0.03 * Curves.easeOut.transform(lift.value),
+                  child: _buildTrack(context),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTrack(BuildContext context) {
+    final t = context.tokens;
+    final pos = position.value;
+    final lifted = Curves.easeOut.transform(lift.value);
+    final active = pos.round();
+    final centerX = _inset + slotWidth * (pos + 0.5);
+    final pillWidth = slotWidth;
+    const pillHeight = _height - _inset * 2;
+    final dropWidth = pillWidth * (1 + 0.14 * lifted);
+    final dropHeight = pillHeight * (1 + 0.3 * lifted);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: LiquidGlass(
+            radius: _height / 2,
+            blur: 12,
+            opacity: 0.55,
+            shadow: false,
+            child: Stack(
+              children: [
+                Positioned(
+                  left: centerX - pillWidth / 2,
+                  top: _inset,
+                  width: pillWidth,
+                  height: pillHeight,
+                  child: Opacity(
+                    opacity: 1 - lifted,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: t.brightness == Brightness.dark
+                            ? t.ink.withValues(alpha: 0.16)
+                            : Colors.white.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(pillHeight / 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: t.glassShadow.withValues(alpha: 0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(_inset),
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < widget.options.length; i++)
+                        Expanded(
+                          child: Semantics(
+                            button: true,
+                            selected: i == active,
+                            label: widget.options[i].$3,
+                            excludeSemantics: true,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  widget.options[i].$2,
+                                  size: 17,
+                                  color: i == active ? t.accent : t.mutedInk,
+                                ),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    widget.options[i].$3,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: i == active ? t.accent : t.ink,
+                                      fontSize: 13.5,
+                                      fontWeight: i == active
+                                          ? FontWeight.w700
+                                          : FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (lifted > 0.01)
+          Positioned(
+            left: centerX - dropWidth / 2,
+            top: _height / 2 - dropHeight / 2,
+            width: dropWidth,
+            height: dropHeight,
+            child: IgnorePointer(child: _GlassDroplet(lift: lifted)),
+          ),
+      ],
     );
   }
 }

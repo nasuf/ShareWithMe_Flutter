@@ -30,7 +30,7 @@ class _ImportJsonSheetState extends State<_ImportJsonSheet> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
             child: ColoredBox(
-              color: Colors.white.withValues(alpha: 0.82),
+              color: context.tokens.sheetFill.withValues(alpha: context.tokens.brightness == Brightness.dark ? 0.92 : 0.82),
               child: SingleChildScrollView(
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -67,7 +67,7 @@ class _ImportJsonSheetState extends State<_ImportJsonSheet> {
                         _SettingsInlineNotice(
                           icon: Icons.error_outline,
                           text: errorText,
-                          color: const Color(0xFFFFF3ED),
+                          color: context.tokens.brightness == Brightness.dark ? const Color(0xFF3A2218) : const Color(0xFFFFF3ED),
                         ),
                       ],
                       const SizedBox(height: 14),
@@ -136,7 +136,7 @@ class _SettingsInlineNotice extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFDCE3DD)),
+        border: Border.all(color: context.tokens.line),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,7 +159,10 @@ class _AnalyzerStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = status.ok ? const Color(0xFFEAF7EF) : const Color(0xFFFFF3ED);
+    final dark = context.tokens.brightness == Brightness.dark;
+    final color = status.ok
+        ? (dark ? const Color(0xFF143020) : const Color(0xFFEAF7EF))
+        : (dark ? const Color(0xFF3A2218) : const Color(0xFFFFF3ED));
     final icon = status.ok
         ? Icons.check_circle_outline
         : Icons.warning_amber_outlined;
@@ -169,7 +172,7 @@ class _AnalyzerStatusBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFDCE3DD)),
+        border: Border.all(color: context.tokens.line),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

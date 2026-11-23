@@ -410,8 +410,8 @@ class _SummaryCard extends StatelessWidget {
           else
             SelectableText(
               item.summary,
-              style: const TextStyle(
-                color: Color(0xFF1E2622),
+              style: TextStyle(
+                color: t.ink,
                 fontSize: 14.5,
                 height: 1.55,
               ),

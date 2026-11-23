@@ -7,6 +7,74 @@ part of '../../main.dart';
 // chrome (tab bar, buttons, sheets); list rows skip the backdrop filter so
 // scrolling stays cheap.
 
+/// Loads the lens refraction shader once. Stays null where the runtime cannot
+/// compile it (Skia, tests); callers then fall back to the plain magnifier.
+class _GlassLensShader {
+  static FragmentProgram? program;
+  static Future<void>? _loading;
+
+  static Future<void> ensureLoaded() => _loading ??= () async {
+    try {
+      program = await FragmentProgram.fromAsset('shaders/glass_lens.frag');
+    } catch (exception) {
+      debugPrint('Glass lens shader unavailable: $exception');
+    }
+  }();
+}
+
+/// Directional rim light for glass: bright where the light hits (top-left),
+/// a faint bounce on the opposite corner, plus a soft inner glow so the edge
+/// reads as a thick bevel instead of a flat hairline.
+class _GlassRimPainter extends CustomPainter {
+  const _GlassRimPainter({required this.shape, required this.dark});
+
+  final BorderRadius shape;
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outer = shape.toRRect(Offset.zero & size).deflate(0.5);
+    final rect = Offset.zero & size;
+    final rim = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withValues(alpha: dark ? 0.46 : 0.95),
+          Colors.white.withValues(alpha: dark ? 0.06 : 0.18),
+          Colors.white.withValues(alpha: dark ? 0.02 : 0.10),
+          Colors.white.withValues(alpha: dark ? 0.24 : 0.60),
+        ],
+        stops: const [0, 0.38, 0.62, 1],
+      ).createShader(rect);
+    canvas.drawRRect(outer, rim);
+    final glow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4)
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withValues(alpha: dark ? 0.14 : 0.40),
+          Colors.white.withValues(alpha: 0),
+          Colors.white.withValues(alpha: dark ? 0.06 : 0.18),
+        ],
+        stops: const [0, 0.5, 1],
+      ).createShader(rect);
+    canvas.save();
+    canvas.clipRRect(shape.toRRect(rect));
+    canvas.drawRRect(outer.deflate(2.5), glow);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_GlassRimPainter old) =>
+      old.shape != shape || old.dark != dark;
+}
+
 class LiquidGlass extends StatelessWidget {
   const LiquidGlass({
     super.key,
@@ -17,6 +85,7 @@ class LiquidGlass extends StatelessWidget {
     this.opacity = 0.62,
     this.dark = false,
     this.shadow = true,
+    this.solid = false,
     this.onTap,
     this.borderRadius,
   });
@@ -33,6 +102,10 @@ class LiquidGlass extends StatelessWidget {
   final double opacity;
   final bool dark;
   final bool shadow;
+
+  /// Content-layer card: near-opaque fill and no backdrop blur. Glass proper
+  /// is reserved for floating chrome (tab bar, buttons, sheets).
+  final bool solid;
   final VoidCallback? onTap;
 
   @override
@@ -43,8 +116,9 @@ class LiquidGlass extends StatelessWidget {
     // 并将不透明度拉到 0.88+ 才能与深色背景拉开层次。
     final isDark = dark || t.brightness == Brightness.dark;
     final base = isDark ? t.glassFill : Colors.white;
-    final rim = isDark ? Colors.white.withValues(alpha: 0.22) : t.glassRim;
-    final effectiveOpacity = isDark ? opacity.clamp(0.82, 1.0) : opacity;
+    final effectiveOpacity = solid
+        ? (isDark ? 1.0 : 0.94)
+        : (isDark ? opacity.clamp(0.82, 1.0) : opacity);
     Widget surface = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: shape,
@@ -56,28 +130,15 @@ class LiquidGlass extends StatelessWidget {
             base.withValues(alpha: effectiveOpacity * 0.75),
           ],
         ),
-        border: Border.all(color: rim, width: 0.8),
       ),
       child: Stack(
         children: [
           Padding(padding: padding, child: child),
-          // Specular highlight hugging the top edge.
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            height: 1.2,
+          // Directional rim light and inner bevel glow over the whole edge.
+          Positioned.fill(
             child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.white.withValues(alpha: 0),
-                      Colors.white.withValues(alpha: isDark ? 0.35 : 0.95),
-                      Colors.white.withValues(alpha: 0),
-                    ],
-                  ),
-                ),
+              child: CustomPaint(
+                painter: _GlassRimPainter(shape: shape, dark: isDark),
               ),
             ),
           ),
@@ -92,7 +153,7 @@ class LiquidGlass extends StatelessWidget {
     }
     surface = ClipRRect(
       borderRadius: shape,
-      child: blur > 0
+      child: blur > 0 && !solid
           ? BackdropFilter(
               filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
               child: surface,
@@ -116,6 +177,45 @@ class LiquidGlass extends StatelessWidget {
         ],
       ),
       child: surface,
+    );
+  }
+}
+
+/// Gives glass controls a physical press: the surface shrinks slightly under
+/// the finger and springs back on release, without taking part in the gesture
+/// arena so the child's own tap handling is untouched.
+class _PressScale extends StatefulWidget {
+  const _PressScale({required this.child});
+
+  final Widget child;
+
+  static const double pressedScale = 0.92;
+
+  @override
+  State<_PressScale> createState() => _PressScaleState();
+}
+
+class _PressScaleState extends State<_PressScale> {
+  bool pressed = false;
+
+  void _set(bool value) {
+    if (pressed != value) {
+      setState(() => pressed = value);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) => _set(true),
+      onPointerUp: (_) => _set(false),
+      onPointerCancel: (_) => _set(false),
+      child: AnimatedScale(
+        scale: pressed ? _PressScale.pressedScale : 1,
+        duration: Duration(milliseconds: pressed ? 90 : 260),
+        curve: pressed ? Curves.easeOut : Curves.easeOutBack,
+        child: widget.child,
+      ),
     );
   }
 }
@@ -150,18 +250,20 @@ class GlassCircleButton extends StatelessWidget {
       child: Semantics(
         button: true,
         label: tooltip,
-        child: SizedBox.square(
-          dimension: size,
-          child: LiquidGlass(
-            radius: size / 2,
-            blur: 20,
-            opacity: onImage ? 0.26 : 0.66,
-            onTap: onPressed,
-            child: Center(
-              child: Icon(
-                icon,
-                size: size * 0.47,
-                color: onPressed == null ? color.withValues(alpha: 0.4) : color,
+        child: _PressScale(
+          child: SizedBox.square(
+            dimension: size,
+            child: LiquidGlass(
+              radius: size / 2,
+              blur: 20,
+              opacity: onImage ? 0.26 : 0.66,
+              onTap: onPressed,
+              child: Center(
+                child: Icon(
+                  icon,
+                  size: size * 0.47,
+                  color: onPressed == null ? color.withValues(alpha: 0.4) : color,
+                ),
               ),
             ),
           ),

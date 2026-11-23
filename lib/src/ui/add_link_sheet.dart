@@ -55,9 +55,11 @@ class _AddLinkSheetState extends State<_AddLinkSheet> {
             filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.79),
+                color: context.tokens.sheetFill.withValues(
+                  alpha: context.tokens.brightness == Brightness.dark ? 0.9 : 0.79,
+                ),
                 border: Border(
-                  top: BorderSide(color: Colors.white.withValues(alpha: 0.96)),
+                  top: BorderSide(color: context.tokens.sheetBorder),
                 ),
               ),
               child: SingleChildScrollView(
@@ -128,7 +130,7 @@ class _AddLinkSheetState extends State<_AddLinkSheet> {
                       _InlineNotice(
                         icon: Icons.error_outline,
                         text: errorText,
-                        color: const Color(0xFFFFF1F0),
+                        color: context.tokens.brightness == Brightness.dark ? const Color(0xFF3A2218) : const Color(0xFFFFF1F0),
                       ),
                     ],
                     const SizedBox(height: 16),
@@ -234,7 +236,7 @@ class _InlineNotice extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFF0D7D4)),
+        border: Border.all(color: context.tokens.line),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -35,20 +35,22 @@ class HomeShell extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (controller.tabIndex == 0)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      height: MediaQuery.paddingOf(context).top,
-                      child: IgnorePointer(
-                        child: ValueListenableBuilder<double>(
-                          valueListenable: controller.libraryBarPinned,
-                          builder: (context, pinned, _) =>
-                              FrostedStrip(progress: pinned),
+                  // Always in the tree: toggling it would shift the tab bar's
+                  // slot in this Stack, rebuild its state and skip the slide.
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    height: MediaQuery.paddingOf(context).top,
+                    child: IgnorePointer(
+                      child: ValueListenableBuilder<double>(
+                        valueListenable: controller.libraryBarPinned,
+                        builder: (context, pinned, _) => FrostedStrip(
+                          progress: controller.tabIndex == 0 ? pinned : 0,
                         ),
                       ),
                     ),
+                  ),
                   if (!wide)
                     Positioned(
                       left: 16,
@@ -216,7 +218,10 @@ class _GlassTabBarState extends State<_GlassTabBar>
                   onHorizontalDragCancel: () => _release(),
                   child: AnimatedBuilder(
                     animation: Listenable.merge([position, lift]),
-                    builder: (context, _) => _buildBar(constraints.maxWidth),
+                    builder: (context, _) => Transform.scale(
+                      scale: 1 - 0.035 * Curves.easeOut.transform(lift.value),
+                      child: _buildBar(constraints.maxWidth),
+                    ),
                   ),
                 );
               },
@@ -264,7 +269,9 @@ class _GlassTabBarState extends State<_GlassTabBar>
                     opacity: 1 - lifted,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: context.tokens.brightness == Brightness.dark
+                            ? context.tokens.ink.withValues(alpha: 0.16)
+                            : Colors.white.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(pillHeight / 2),
                         boxShadow: [
                           BoxShadow(
@@ -320,6 +327,7 @@ class _GlassDroplet extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest;
+        unawaited(_GlassLensShader.ensureLoaded());
         final radius = BorderRadius.circular(size.height / 2);
         final zoom = 1 + 0.22 * lift;
         final cx = size.width / 2;
@@ -345,8 +353,12 @@ class _GlassDroplet extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: radius,
-            child: BackdropFilter(
-              filter: ImageFilter.matrix(magnify.storage),
+            child: _LensBackdrop(
+              program: _GlassLensShader.program,
+              fallback: ImageFilter.matrix(magnify.storage),
+              lift: lift,
+              screenSize: MediaQuery.sizeOf(context),
+              pixelRatio: MediaQuery.devicePixelRatioOf(context),
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   borderRadius: radius,
@@ -371,6 +383,98 @@ class _GlassDroplet extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// Backdrop filter for the lens. The shader sees the whole screen as its
+/// texture, so the lens rect is measured in screen pixels at paint time
+/// (including the bar's press squeeze) and passed in, keeping the magnified
+/// spot under the droplet as it slides.
+class _LensBackdrop extends SingleChildRenderObjectWidget {
+  const _LensBackdrop({
+    required this.program,
+    required this.fallback,
+    required this.lift,
+    required this.screenSize,
+    required this.pixelRatio,
+    super.child,
+  });
+
+  final FragmentProgram? program;
+  final ImageFilter fallback;
+  final double lift;
+  final Size screenSize;
+  final double pixelRatio;
+
+  @override
+  _RenderLensBackdrop createRenderObject(BuildContext context) =>
+      _RenderLensBackdrop(program, fallback, lift, screenSize, pixelRatio);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderLensBackdrop renderObject,
+  ) {
+    renderObject
+      ..program = program
+      ..fallback = fallback
+      ..lift = lift
+      ..screenSize = screenSize
+      ..pixelRatio = pixelRatio
+      ..markNeedsPaint();
+  }
+}
+
+class _RenderLensBackdrop extends RenderProxyBox {
+  _RenderLensBackdrop(
+    this.program,
+    this.fallback,
+    this.lift,
+    this.screenSize,
+    this.pixelRatio,
+  );
+
+  FragmentProgram? program;
+  ImageFilter fallback;
+  double lift;
+  Size screenSize;
+  double pixelRatio;
+
+  @override
+  bool get alwaysNeedsCompositing => child != null;
+
+  @override
+  BackdropFilterLayer? get layer => super.layer as BackdropFilterLayer?;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child == null) {
+      layer = null;
+      return;
+    }
+    final program = this.program;
+    final rect = MatrixUtils.transformRect(
+      getTransformTo(null),
+      Offset.zero & size,
+    );
+    // The matrix fallback works in the droplet's local space, like before.
+    ImageFilter filter = fallback;
+    if (program != null) {
+      // Index 0-1 is the texture size, filled in by the engine.
+      filter = ImageFilter.shader(
+        program.fragmentShader()
+          ..setFloat(2, screenSize.width * pixelRatio)
+          ..setFloat(3, screenSize.height * pixelRatio)
+          ..setFloat(4, rect.left * pixelRatio)
+          ..setFloat(5, rect.top * pixelRatio)
+          ..setFloat(6, rect.width * pixelRatio)
+          ..setFloat(7, rect.height * pixelRatio)
+          ..setFloat(8, lift),
+      );
+    }
+    layer ??= BackdropFilterLayer();
+    layer!.filter = filter;
+    context.pushLayer(layer!, super.paint, offset);
   }
 }
 

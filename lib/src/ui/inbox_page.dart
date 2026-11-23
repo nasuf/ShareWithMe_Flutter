@@ -559,7 +559,7 @@ class _FolderChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final foreground = selected ? Colors.white : t.ink;
+    final foreground = selected ? t.surface : t.ink;
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -586,7 +586,7 @@ class _FolderChip extends StatelessWidget {
     );
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: Semantics(
+      child: _PressScale(child: Semantics(
         button: true,
         selected: selected,
         child: selected
@@ -611,7 +611,7 @@ class _FolderChip extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Center(widthFactor: 1, child: content),
               ),
-      ),
+      )),
     );
   }
 }

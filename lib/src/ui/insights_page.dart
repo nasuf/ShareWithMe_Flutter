@@ -131,6 +131,7 @@ class _PlatformRingCard extends StatelessWidget {
     ];
     final total = stats?.total ?? 0;
     return LiquidGlass(
+      solid: true,
       radius: 30,
       padding: const EdgeInsets.all(18),
       child: Row(
@@ -286,6 +287,7 @@ class _TopFolderCard extends StatelessWidget {
     final current = folder;
     final share = current == null || total == 0 ? 0.0 : current.count / total;
     return LiquidGlass(
+      solid: true,
       radius: 26,
       padding: const EdgeInsets.all(16),
       onTap: current == null ? null : () => onOpen(current.label),
@@ -350,6 +352,7 @@ class _RecentCoversCard extends StatelessWidget {
         if (item.category.trim().isNotEmpty) item.category.trim(),
     }.take(4).join('、');
     return LiquidGlass(
+      solid: true,
       radius: 26,
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -379,7 +382,7 @@ class _RecentCoversCard extends StatelessWidget {
                         height: 56,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white, width: 2),
+                          border: Border.all(color: context.tokens.surface, width: 2),
                           boxShadow: [
                             BoxShadow(
                               color: context.tokens.glassShadow.withValues(alpha: 0.18),
@@ -428,6 +431,7 @@ class _DigestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LiquidGlass(
+      solid: true,
       radius: 26,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
@@ -507,6 +511,7 @@ class _ChipCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LiquidGlass(
+      solid: true,
       radius: 26,
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -526,7 +531,7 @@ class _ChipCard extends StatelessWidget {
             children: [
               for (final bucket in buckets)
                 Material(
-                  color: Colors.white.withValues(alpha: 0.72),
+                  color: context.tokens.ink.withValues(alpha: 0.08),
                   shape: StadiumBorder(
                     side: BorderSide(color: context.tokens.glassRim, width: 0.8),
                   ),
