@@ -572,7 +572,10 @@ class _GlassSegmentedState<T> extends State<_GlassSegmented<T>>
             blur: 12,
             opacity: 0.55,
             shadow: false,
+            // Fill the track: sized by the label row alone, this Stack is
+            // shorter than the pill and clips its bottom.
             child: Stack(
+              fit: StackFit.expand,
               children: [
                 Positioned(
                   left: centerX - pillWidth / 2,
